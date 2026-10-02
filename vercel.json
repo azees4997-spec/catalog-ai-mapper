@@ -3,6 +3,7 @@
   "rewrites": [
     { "source": "/api/search-master", "destination": "/api/search-master.js" },
     { "source": "/api/match-catalog", "destination": "/api/match-catalog.js" },
-    { "source": "/api/fetch-sheet", "destination": "/api/fetch-sheet.js" }
+    { "source": "/api/fetch-sheet", "destination": "/api/fetch-sheet.js" },
+    { "source": "/api/sync-supabase", "destination": "/api/sync-supabase.js" }
   ]
 }

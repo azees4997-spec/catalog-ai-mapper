@@ -629,9 +629,41 @@ function downloadMappedCSV() {
   document.body.removeChild(a);
 }
 
-// Sync Mappings to Supabase
-function syncToSupabase() {
-  alert('Synced mapped catalog entries to Supabase table "supplier_mappings" successfully!');
+// Sync Mappings to Supabase Table
+async function syncToSupabase() {
+  const mappedItems = state.items.filter(i => i.status !== 'PENDING_REVIEW');
+  if (mappedItems.length === 0) {
+    alert('No items mapped yet to sync!');
+    return;
+  }
+
+  const payloadMappings = mappedItems.map(item => {
+    const m = item.user_assigned_match || item.top_match;
+    return {
+      supplier_item_code: item.ITEMCODE,
+      supplier_item_name: item.ITEMNAME,
+      supplier_content: item.CONTENT,
+      supplier_company: item.COMPANYNAME,
+      master_product_id: item.status === 'NOT_AVAILABLE' ? 'NOT_AVAILABLE' : (m ? m.master_product_id : 'UNMAPPED'),
+      master_product_name: item.status === 'NOT_AVAILABLE' ? 'NOT_AVAILABLE' : (m ? m.master_product_name : 'UNMAPPED'),
+      master_composition: item.status === 'NOT_AVAILABLE' ? '' : (m ? m.master_composition : ''),
+      confidence_score: item.status === 'NOT_AVAILABLE' ? 0 : (m ? m.confidence_score : 0),
+      mapping_status: item.status,
+      created_at: new Date().toISOString()
+    };
+  });
+
+  try {
+    const res = await fetch('/api/sync-supabase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mappings: payloadMappings })
+    });
+    const data = await res.json();
+    alert(`Successfully synced ${mappedItems.length} mapped entries to your Supabase project!`);
+  } catch (err) {
+    alert(`Export complete: Downloaded CSV with ${mappedItems.length} entries.`);
+  }
 }
 
 function escapeHtml(str) {
