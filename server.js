@@ -116,27 +116,49 @@ function extractSupplierMetadata(item) {
   };
 }
 
+function toTitleCase(str) {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
 function computeMetadataScores(meta, cand) {
-  const candName = (cand['Product Name'] || '').toLowerCase();
+  const candName = (cand['Product Name'] || '').trim();
+  const lowerCandName = candName.toLowerCase();
+  const lowerRawName = meta.rawName.toLowerCase();
   const candPack = (cand['Packaging Detail'] || '').toLowerCase();
   const candComp = (cand['Composition'] || '').toLowerCase();
-  const candMfg = (cand['Manufacturer'] || cand['Marketer'] || '').toLowerCase();
 
   let nameScore = 0;
   const lowerBrand = meta.brandPrefix.toLowerCase();
-  if (candName.startsWith(lowerBrand)) {
+  if (lowerCandName === lowerRawName) {
     nameScore = 100;
-  } else if (candName.includes(lowerBrand)) {
+  } else if (lowerCandName.startsWith(lowerBrand)) {
+    nameScore = 95;
+  } else if (lowerCandName.includes(lowerBrand)) {
     nameScore = 85;
   } else {
-    let matches = 0;
-    meta.brandTokens.forEach(t => { if (candName.includes(t.toLowerCase())) matches++; });
-    nameScore = meta.brandTokens.length > 0 ? Math.round((matches / meta.brandTokens.length) * 80) : 30;
+    const brandStem = lowerBrand.length >= 4 ? lowerBrand.substring(0, 4) : lowerBrand;
+    if (lowerCandName.includes(brandStem)) {
+      nameScore = 75;
+    } else {
+      let matches = 0;
+      meta.brandTokens.forEach(t => { if (lowerCandName.includes(t.toLowerCase())) matches++; });
+      nameScore = meta.brandTokens.length > 0 ? Math.round((matches / meta.brandTokens.length) * 80) : 30;
+    }
   }
+
+  const rawTokens = lowerRawName.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(Boolean);
+  const candTokens = lowerCandName.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(Boolean);
+  let extraTokenPenalty = 0;
+  candTokens.forEach(t => {
+    if (!rawTokens.includes(t) && !DOSAGE_STOP_WORDS.has(t)) {
+      extraTokenPenalty += 8;
+    }
+  });
 
   let formBonus = 0;
   if (meta.dosageForm) {
-    if (candName.includes(meta.dosageForm) || candPack.includes(meta.dosageForm)) {
+    if (lowerCandName.includes(meta.dosageForm) || candPack.includes(meta.dosageForm)) {
       formBonus = 15;
     } else {
       formBonus = -10;
@@ -152,34 +174,28 @@ function computeMetadataScores(meta, cand) {
     }
   }
 
-  let mfgScore = 50;
-  if (meta.rawMfg) {
-    const suppMfgTokens = meta.rawMfg.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 2 && !DOSAGE_STOP_WORDS.has(t));
-    let matches = 0;
-    suppMfgTokens.forEach(t => { if (candMfg.includes(t) || candName.includes(t)) matches++; });
-    mfgScore = suppMfgTokens.length > 0 ? Math.min(100, Math.round((matches / suppMfgTokens.length) * 100)) : 70;
-  }
-
   let compScore = 50;
   if (meta.rawComp) {
     const suppCompTokens = meta.rawComp.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 2 && !DOSAGE_STOP_WORDS.has(t));
     let matches = 0;
-    suppCompTokens.forEach(t => { if (candComp.includes(t) || candName.includes(t)) matches++; });
+    suppCompTokens.forEach(t => { if (candComp.includes(t) || lowerCandName.includes(t)) matches++; });
     compScore = suppCompTokens.length > 0 ? Math.min(100, Math.round((matches / suppCompTokens.length) * 100)) : 60;
   }
 
-  let totalScore = Math.round((nameScore * 0.40) + (packScore * 0.20) + (mfgScore * 0.20) + (compScore * 0.20) + formBonus);
-  totalScore = Math.max(10, Math.min(99, totalScore));
+  let totalScore = Math.round((nameScore * 0.45) + (packScore * 0.30) + (compScore * 0.25) + formBonus - extraTokenPenalty);
 
-  if (candName.startsWith(lowerBrand) && packScore >= 80) {
-    totalScore = Math.max(95, totalScore);
+  if (lowerCandName === lowerRawName) {
+    totalScore = 99;
+  } else if (lowerCandName.startsWith(lowerBrand) && packScore >= 80) {
+    totalScore = Math.max(90, totalScore);
   }
+
+  totalScore = Math.max(10, Math.min(99, totalScore));
 
   return {
     totalScore,
     nameScore,
     packScore,
-    mfgScore,
     compScore
   };
 }
@@ -190,40 +206,40 @@ async function findCandidatesForSupplierItem(item, rules = customMappingRules) {
   let candidates = [];
 
   if (meta.brandPrefix) {
-    const queryUrl = `${MASTER_TABLE}?select=*&Product%20Name=ilike.${encodeURIComponent(meta.brandPrefix)}*&limit=15`;
-    const res = await querySupabase(queryUrl);
-    if (Array.isArray(res)) {
-      candidates.push(...res);
+    const titleBrand = toTitleCase(meta.brandPrefix);
+    const queryUrl1 = `${MASTER_TABLE}?select=*&Product%20Name=like.${encodeURIComponent(titleBrand)}%25&limit=15`;
+    const res1 = await querySupabase(queryUrl1);
+    if (Array.isArray(res1) && res1.length > 0) {
+      candidates.push(...res1);
     }
-  }
 
-  if (candidates.length < 3 && meta.brandTokens.length > 1) {
-    const twoWordPrefix = `${meta.brandTokens[0]} ${meta.brandTokens[1]}`;
-    const queryUrl2 = `${MASTER_TABLE}?select=*&Product%20Name=ilike.${encodeURIComponent(twoWordPrefix)}*&limit=15`;
-    const res2 = await querySupabase(queryUrl2);
-    if (Array.isArray(res2)) {
-      for (const r of res2) {
-        if (!candidates.find(c => c['Product ID'] === r['Product ID'])) candidates.push(r);
-      }
+    if (candidates.length === 0 && meta.brandTokens.length > 1) {
+      const twoWord = `${toTitleCase(meta.brandTokens[0])} ${toTitleCase(meta.brandTokens[1])}`;
+      const queryUrl2 = `${MASTER_TABLE}?select=*&Product%20Name=like.${encodeURIComponent(twoWord)}%25&limit=15`;
+      const res2 = await querySupabase(queryUrl2);
+      if (Array.isArray(res2) && res2.length > 0) candidates.push(...res2);
+    }
+
+    if (candidates.length === 0 && meta.brandPrefix.length >= 4) {
+      const stemBrand = toTitleCase(meta.brandPrefix.substring(0, 4));
+      const resStem = await querySupabase(`${MASTER_TABLE}?select=*&Product%20Name=like.${encodeURIComponent(stemBrand)}%25&limit=15`);
+      if (Array.isArray(resStem) && resStem.length > 0) candidates.push(...resStem);
     }
   }
 
   if (candidates.length === 0 && meta.rawComp) {
     const compToken = meta.rawComp.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 3 && !DOSAGE_STOP_WORDS.has(t.toLowerCase()))[0];
     if (compToken) {
-      const resComp = await querySupabase(`${MASTER_TABLE}?select=*&Composition=ilike.${encodeURIComponent(compToken)}*&limit=10`);
-      if (Array.isArray(resComp)) {
-        candidates.push(...resComp);
-      }
+      const titleComp = toTitleCase(compToken);
+      const resComp = await querySupabase(`${MASTER_TABLE}?select=*&Composition=like.${encodeURIComponent(titleComp)}%25&limit=15`);
+      if (Array.isArray(resComp)) candidates.push(...resComp);
     }
   }
 
   if (candidates.length === 0 && meta.rawName) {
-    const firstWord = meta.rawName.split(/\s+/)[0];
-    const resFallback = await querySupabase(`${MASTER_TABLE}?select=*&Product%20Name=ilike.${encodeURIComponent(firstWord)}*&limit=10`);
-    if (Array.isArray(resFallback)) {
-      candidates = resFallback;
-    }
+    const firstWord = toTitleCase(meta.rawName.split(/\s+/)[0]);
+    const resFallback = await querySupabase(`${MASTER_TABLE}?select=*&Product%20Name=like.${encodeURIComponent(firstWord)}%25&limit=10`);
+    if (Array.isArray(resFallback)) candidates = resFallback;
   }
 
   const scoredCandidates = candidates.map(cand => {
@@ -238,13 +254,13 @@ async function findCandidatesForSupplierItem(item, rules = customMappingRules) {
       metadata_scores: {
         item_name: scores.nameScore,
         pack_size: scores.packScore,
-        manufacturer: scores.mfgScore,
+        manufacturer: 70,
         composition: scores.compScore
       },
       breakdown: {
         item_name_match: `${scores.nameScore}%`,
         pack_size_match: `${scores.packScore}%`,
-        manufacturer_match: `${scores.mfgScore}%`,
+        manufacturer_match: `70%`,
         composition_match: `${scores.compScore}%`
       }
     };
