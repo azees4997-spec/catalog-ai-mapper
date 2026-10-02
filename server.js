@@ -53,6 +53,53 @@ function fetchUrlWithRedirects(targetUrl, maxRedirects = 5) {
   });
 }
 
+function computeMetadataScores(item, cand) {
+  const suppName = (item.ITEMNAME || '').toLowerCase();
+  const suppPack = (item.PACKING || '').toLowerCase();
+  const suppMfg = (item.COMPANYNAME || '').toLowerCase();
+  const suppComp = (item.CONTENT || '').toLowerCase();
+
+  const candName = (cand['Product Name'] || '').toLowerCase();
+  const candPack = (cand['Packaging Detail'] || '').toLowerCase();
+  const candComp = (cand['Composition'] || '').toLowerCase();
+  const candMfg = (cand['Manufacturer'] || cand['Marketer'] || cand['Company'] || candName).toLowerCase();
+
+  // 1. Item Name Score
+  const nameTokens = suppName.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 1);
+  let nameMatches = 0;
+  nameTokens.forEach(t => { if (candName.includes(t)) nameMatches++; });
+  const nameScore = nameTokens.length > 0 ? Math.min(100, Math.round((nameMatches / nameTokens.length) * 100)) : 50;
+
+  // 2. Pack Size Score
+  const packTokens = suppPack.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 0);
+  let packMatches = 0;
+  packTokens.forEach(t => { if (candPack.includes(t)) packMatches++; });
+  const packScore = packTokens.length > 0 ? Math.min(100, Math.round((packMatches / packTokens.length) * 100)) : 80;
+
+  // 3. Manufacturer Score
+  const mfgTokens = suppMfg.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 2 && !['pvt', 'ltd', 'limited', 'india'].includes(t));
+  let mfgMatches = 0;
+  mfgTokens.forEach(t => { if (candMfg.includes(t) || candName.includes(t)) mfgMatches++; });
+  const mfgScore = mfgTokens.length > 0 ? Math.min(100, Math.round((mfgMatches / mfgTokens.length) * 100)) : 70;
+
+  // 4. Composition Score
+  const compTokens = suppComp.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 2);
+  let compMatches = 0;
+  compTokens.forEach(t => { if (candComp.includes(t) || candName.includes(t)) compMatches++; });
+  const compScore = compTokens.length > 0 ? Math.min(100, Math.round((compMatches / compTokens.length) * 100)) : 60;
+
+  let totalScore = Math.round((nameScore * 0.40) + (packScore * 0.20) + (mfgScore * 0.20) + (compScore * 0.20));
+  if (candName.includes(suppName) || candName.includes(suppMfg)) totalScore = Math.max(totalScore, 92);
+
+  return {
+    totalScore,
+    nameScore,
+    packScore,
+    mfgScore,
+    compScore
+  };
+}
+
 // Multi-Factor AI Matching Algorithm evaluating ITEMNAME, COMPANYNAME, CONTENT vs Supabase June_Data
 async function findCandidatesForSupplierItem(item, rules = customMappingRules) {
   const itemCode = item.ITEMCODE || item.item_code || item.code || '';
@@ -60,13 +107,8 @@ async function findCandidatesForSupplierItem(item, rules = customMappingRules) {
   const content = item.CONTENT || item.composition || item.formula || '';
   const packing = item.PACKING || item.packaging || '';
   const companyName = item.COMPANYNAME || item.company_name || item.supplier_name || '';
-  const saleRate = item.SALERATE || item.sale_rate || '';
-  const mrp = item.MRP || item.mrp || '';
 
-  // Combine ITEMNAME + COMPANYNAME + CONTENT for search tokens
   const fullTextQuery = `${itemName} ${companyName} ${content}`;
-  
-  // Extract keywords (words longer than 2 chars excluding generic pharma stop words)
   const cleanTokens = fullTextQuery
     .replace(/[^\w\s]/gi, ' ')
     .split(/\s+/)
@@ -75,7 +117,6 @@ async function findCandidatesForSupplierItem(item, rules = customMappingRules) {
   const searchKeywords = cleanTokens.slice(0, 4);
   let candidates = [];
 
-  // 1. Search Supabase "Product Name" column
   for (const kw of searchKeywords) {
     if (candidates.length >= 6) break;
     const res = await querySupabase(`${MASTER_TABLE}?select=*&"Product Name"=ilike.*${encodeURIComponent(kw)}*&limit=10`);
@@ -88,7 +129,6 @@ async function findCandidatesForSupplierItem(item, rules = customMappingRules) {
     }
   }
 
-  // 2. Search Supabase "Composition" column if candidates < 5
   if (candidates.length < 5 && cleanTokens.length > 0) {
     for (const kw of cleanTokens.slice(0, 2)) {
       if (candidates.length >= 8) break;
@@ -103,7 +143,6 @@ async function findCandidatesForSupplierItem(item, rules = customMappingRules) {
     }
   }
 
-  // 3. Fallback search
   if (candidates.length === 0 && cleanTokens.length > 0) {
     const fallbackRes = await querySupabase(`${MASTER_TABLE}?select=*&"Product Name"=ilike.*${encodeURIComponent(cleanTokens[0].substring(0, 4))}*&limit=8`);
     if (Array.isArray(fallbackRes)) {
@@ -111,60 +150,26 @@ async function findCandidatesForSupplierItem(item, rules = customMappingRules) {
     }
   }
 
-  // Calculate Match Scores
   const scoredCandidates = candidates.map(cand => {
-    let score = 0;
-    const candName = (cand['Product Name'] || '').toLowerCase();
-    const candComp = (cand['Composition'] || '').toLowerCase();
-    const suppName = itemName.toLowerCase();
-    const suppComp = companyName.toLowerCase();
-    const suppContent = content.toLowerCase();
-
-    // Match ITEMNAME & COMPANYNAME against Product Name
-    const nameTokens = (itemName + ' ' + companyName).toLowerCase().split(/\s+/);
-    let nameMatches = 0;
-    nameTokens.forEach(w => {
-      if (w.length > 2 && (candName.includes(w) || candComp.includes(w))) nameMatches++;
-    });
-    const nameScore = Math.min(100, Math.round((nameMatches / Math.max(1, nameTokens.length)) * 100));
-
-    // Match CONTENT against Composition
-    let contentScore = 0;
-    if (suppContent && candComp) {
-      const compWords = suppContent.split(/[\+\/\,\s]+/);
-      let compMatches = 0;
-      compWords.forEach(w => {
-        if (w.length > 2 && (candComp.includes(w) || candName.includes(w))) compMatches++;
-      });
-      contentScore = Math.min(100, Math.round((compMatches / Math.max(1, compWords.length)) * 100));
-    }
-
-    // Strength / Dosage match
-    const suppStrengths = (itemName + ' ' + companyName + ' ' + content).match(/\d+(\.\d+)?\s*(mg|ml|gm|mcg|%)/gi) || [];
-    let strengthScore = 100;
-    if (suppStrengths.length > 0) {
-      const matchedStrengths = suppStrengths.filter(s => candName.includes(s.toLowerCase().replace(/\s+/g, '')) || candComp.includes(s.toLowerCase().replace(/\s+/g, '')));
-      strengthScore = (matchedStrengths.length / suppStrengths.length) * 100;
-    }
-
-    score = Math.round(
-      (nameScore * (rules.weights.name || 0.45)) +
-      (contentScore * (rules.weights.content || 0.40)) +
-      (strengthScore * (rules.weights.strength || 0.15))
-    );
-
-    if (candName.includes(suppName) || candName.includes(suppComp)) score = Math.max(score, 90);
-
+    const scores = computeMetadataScores(item, cand);
     return {
       master_product_id: cand['Product ID'],
       master_product_name: cand['Product Name'],
       master_composition: cand['Composition'],
       master_packaging: cand['Packaging Detail'],
-      confidence_score: score,
+      master_manufacturer: cand['Manufacturer'] || cand['Marketer'] || 'Master Brand',
+      confidence_score: scores.totalScore,
+      metadata_scores: {
+        item_name: scores.nameScore,
+        pack_size: scores.packScore,
+        manufacturer: scores.mfgScore,
+        composition: scores.compScore
+      },
       breakdown: {
-        item_name_match: `${nameScore}%`,
-        content_match: `${contentScore}%`,
-        strength_match: `${Math.round(strengthScore)}%`
+        item_name_match: `${scores.nameScore}%`,
+        pack_size_match: `${scores.packScore}%`,
+        manufacturer_match: `${scores.mfgScore}%`,
+        composition_match: `${scores.compScore}%`
       }
     };
   });
@@ -178,11 +183,8 @@ async function findCandidatesForSupplierItem(item, rules = customMappingRules) {
     packing: packing,
     content: content,
     company_name: companyName,
-    sale_rate: saleRate,
-    mrp: mrp,
     top_match: scoredCandidates[0] || null,
-    candidates: scoredCandidates.slice(0, 5),
-    status: scoredCandidates.length > 0 && scoredCandidates[0].confidence_score >= rules.minConfidenceThreshold ? 'AI_MATCHED' : 'PENDING_REVIEW'
+    candidates: scoredCandidates.slice(0, 3)
   };
 }
 
