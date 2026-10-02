@@ -130,7 +130,7 @@ function loadSampleData() {
     } : null,
     candidates: [],
     user_assigned_match: null,
-    status: item.Status || (item['RXP Code'] ? 'APPROVED' : 'PENDING_REVIEW')
+    Status: item.Status || (item['RXP Code'] ? 'Mapped and verified' : 'Neeed to Map')
   }));
 
   updateKPICounters();
@@ -168,10 +168,10 @@ function parsePastedSheetData() {
     const rxpPack = cleanCols[9] || '';
     const rawStatus = cleanCols[10] || '';
 
-    let status = 'PENDING_REVIEW';
-    if (rawStatus.toLowerCase().includes('mapped') || rawStatus.toLowerCase().includes('verified')) status = 'APPROVED';
-    else if (rawStatus.toLowerCase().includes('not')) status = 'NOT_AVAILABLE';
-    else if (rxpCode) status = 'APPROVED';
+    let status = 'Neeed to Map';
+    if (rawStatus.toLowerCase().includes('mapped') || rawStatus.toLowerCase().includes('verified')) status = 'Mapped and verified';
+    else if (rawStatus.toLowerCase().includes('not')) status = 'Not Available';
+    else if (rxpCode) status = 'Mapped and verified';
 
     parsedItems.push({
       id: `item-${i + 1}`,
@@ -185,10 +185,10 @@ function parsePastedSheetData() {
       'RXP Code': rxpCode,
       'RXP Name': rxpName,
       'RXP Pack Size': rxpPack,
+      Status: status,
       top_match: rxpCode ? { master_product_id: rxpCode, master_product_name: rxpName, master_packaging: rxpPack, confidence_score: 95 } : null,
       candidates: [],
-      user_assigned_match: null,
-      status: status
+      user_assigned_match: null
     });
   }
 
@@ -207,7 +207,7 @@ function parsePastedSheetData() {
 async function startBatchMatchingProcess() {
   if (state.isMatchingActive) return;
 
-  const pendingItems = state.items.filter(i => i.status === 'PENDING_REVIEW' || i.status === 'AI_MATCHED' || i.status === 'Neeed to Map');
+  const pendingItems = state.items.filter(i => i.Status === 'Neeed to Map' || i.Status === 'PENDING_REVIEW' || i.Status === 'AI Matched');
   if (pendingItems.length === 0) {
     alert('All catalog items have already been reviewed or mapped!');
     return;
@@ -253,7 +253,7 @@ async function startBatchMatchingProcess() {
               state.items[itemIndex]['RXP Pack Size'] = matchedRes.top_match.master_packaging;
             }
             if (matchedRes.top_match && matchedRes.top_match.confidence_score >= state.mappingRules.minConfidenceThreshold) {
-              state.items[itemIndex].status = 'AI_MATCHED';
+              state.items[itemIndex].Status = 'AI Matched';
             }
           }
         });
@@ -279,16 +279,16 @@ async function startBatchMatchingProcess() {
   progressText.textContent = `AI Batch Matching complete! ${processed} items processed.`;
 }
 
-// Render Main Mapping Table matching user screenshot layout
+// Render Main Mapping Table matching exact user screenshot layout
 function renderTable() {
   const tbody = document.getElementById('mapping-table-body');
   tbody.innerHTML = '';
 
   let filtered = state.items.filter(item => {
-    if (state.currentFilter === 'PENDING' && (item.status !== 'PENDING_REVIEW' && item.status !== 'Neeed to Map')) return false;
-    if (state.currentFilter === 'AI_MATCHED' && item.status !== 'AI_MATCHED') return false;
-    if (state.currentFilter === 'APPROVED' && (item.status !== 'APPROVED' && item.status !== 'NEAREST_MATCH' && item.status !== 'Mapped and verified')) return false;
-    if (state.currentFilter === 'NOT_AVAILABLE' && item.status !== 'NOT_AVAILABLE') return false;
+    if (state.currentFilter === 'PENDING' && item.Status !== 'Neeed to Map' && item.Status !== 'PENDING_REVIEW') return false;
+    if (state.currentFilter === 'AI_MATCHED' && item.Status !== 'AI Matched') return false;
+    if (state.currentFilter === 'APPROVED' && (item.Status !== 'Mapped and verified' && item.Status !== 'APPROVED' && item.Status !== 'NEAREST_MATCH')) return false;
+    if (state.currentFilter === 'NOT_AVAILABLE' && item.Status !== 'Not Available') return false;
 
     if (state.searchQuery) {
       const q = state.searchQuery;
@@ -318,10 +318,10 @@ function renderTable() {
     const score = match ? match.confidence_score : 0;
 
     let statusBadgeHtml = '';
-    if (item.status === 'APPROVED' || item.status === 'Mapped and verified') statusBadgeHtml = `<span class="badge badge-approved">✓ Mapped & verified</span>`;
-    else if (item.status === 'NEAREST_MATCH') statusBadgeHtml = `<span class="badge badge-nearest">⚡ Nearest Match</span>`;
-    else if (item.status === 'NOT_AVAILABLE') statusBadgeHtml = `<span class="badge badge-notavail">✕ Not Avail</span>`;
-    else if (item.status === 'AI_MATCHED') statusBadgeHtml = `<span class="badge badge-ai">⚡ AI Suggested</span>`;
+    if (item.Status === 'Mapped and verified' || item.Status === 'APPROVED') statusBadgeHtml = `<span class="badge badge-approved">✓ Mapped and verified</span>`;
+    else if (item.Status === 'NEAREST_MATCH') statusBadgeHtml = `<span class="badge badge-nearest">⚡ Mapped and verified</span>`;
+    else if (item.Status === 'Not Available') statusBadgeHtml = `<span class="badge badge-notavail">✕ Not Available</span>`;
+    else if (item.Status === 'AI Matched') statusBadgeHtml = `<span class="badge badge-ai">⚡ AI Suggested</span>`;
     else statusBadgeHtml = `<span class="badge badge-pending">Neeed to Map</span>`;
 
     let confidenceBadgeHtml = `<span class="confidence-badge low">No Match</span>`;
@@ -332,7 +332,7 @@ function renderTable() {
     }
 
     let masterCellHtml = '';
-    if (item.status === 'NOT_AVAILABLE') {
+    if (item.Status === 'Not Available') {
       masterCellHtml = `<div style="color: var(--danger); font-weight: 600; font-size: 0.88rem;">🚫 Marked as Not Available in Master Catalog</div>`;
     } else if (rxpCode || rxpName) {
       masterCellHtml = `
@@ -356,11 +356,11 @@ function renderTable() {
       </td>
       <td><span class="supplier-code" style="color: #64748b;">${rxpCode || '—'}</span></td>
       <td>${masterCellHtml}</td>
-      <td>${item.status === 'NOT_AVAILABLE' ? '—' : confidenceBadgeHtml}</td>
+      <td>${item.Status === 'Not Available' ? '—' : confidenceBadgeHtml}</td>
       <td>${statusBadgeHtml}</td>
       <td>
         <div class="action-btn-group">
-          ${item.status !== 'NOT_AVAILABLE' && (rxpCode || match) ? `<button class="btn btn-success btn-sm" onclick="confirmMatch('${item.id}')">✓ Confirm</button>` : ''}
+          ${item.Status !== 'Not Available' && (rxpCode || match) ? `<button class="btn btn-success btn-sm" onclick="confirmMatch('${item.id}')">✓ Confirm & Map</button>` : ''}
           <button class="btn btn-secondary btn-sm" onclick="openCandidateModal('${item.id}')">⚡ Nearest</button>
           <button class="btn btn-secondary btn-sm" onclick="openSearchModal('${item.id}')">🔍 Search</button>
           <button class="btn btn-danger btn-sm" onclick="markNotAvailable('${item.id}')">✕ Not Avail</button>
@@ -378,29 +378,35 @@ function renderTable() {
   }
 }
 
-// Confirm Match
+// Confirm & Map Action: Fills RXP Code, RXP Name, RXP Pack Size and sets Status = 'Mapped and verified'
 window.confirmMatch = function(itemId) {
   const item = state.items.find(i => i.id === itemId);
   if (item) {
-    if (!item.user_assigned_match && !item.top_match && !item['RXP Code']) {
+    const match = item.user_assigned_match || item.top_match;
+    if (!match && !item['RXP Code']) {
       alert('Please select or search a candidate first before confirming!');
       return;
     }
-    item.status = 'Mapped and verified';
+    if (match) {
+      item['RXP Code'] = match.master_product_id;
+      item['RXP Name'] = match.master_product_name;
+      item['RXP Pack Size'] = match.master_packaging;
+    }
+    item.Status = 'Mapped and verified';
     updateKPICounters();
     renderTable();
   }
 };
 
-// Mark Not Available
+// Mark Not Available Action: Clears RXP fields and sets Status = 'Not Available'
 window.markNotAvailable = function(itemId) {
   const item = state.items.find(i => i.id === itemId);
   if (item) {
-    item.status = 'NOT_AVAILABLE';
-    item.user_assigned_match = null;
     item['RXP Code'] = '';
     item['RXP Name'] = '';
     item['RXP Pack Size'] = '';
+    item.Status = 'Not Available';
+    item.user_assigned_match = null;
     updateKPICounters();
     renderTable();
   }
@@ -441,7 +447,7 @@ window.openCandidateModal = function(itemId) {
   openModal('candidate-modal');
 };
 
-// Select Candidate from Drawer
+// Select Candidate from Drawer: Fills RXP fields and sets Status = 'Mapped and verified'
 window.selectCandidateMatch = function(masterProductId) {
   const item = state.selectedItemForCandidateModal;
   if (!item) return;
@@ -452,7 +458,7 @@ window.selectCandidateMatch = function(masterProductId) {
     item['RXP Code'] = candidate.master_product_id;
     item['RXP Name'] = candidate.master_product_name;
     item['RXP Pack Size'] = candidate.master_packaging;
-    item.status = 'NEAREST_MATCH';
+    item.Status = 'Mapped and verified';
     closeModal('candidate-modal');
     updateKPICounters();
     renderTable();
@@ -529,7 +535,7 @@ window.assignCustomMasterMatch = function(id, name, composition, packaging) {
   item['RXP Code'] = id;
   item['RXP Name'] = name;
   item['RXP Pack Size'] = packaging;
-  item.status = 'Mapped and verified';
+  item.Status = 'Mapped and verified';
 
   closeModal('search-modal');
   updateKPICounters();
@@ -560,6 +566,16 @@ function parseCSVText(csvText) {
     const row = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
     if (row.length < 2) continue;
 
+    const rxpCode = row[7] || '';
+    const rxpName = row[8] || '';
+    const rxpPack = row[9] || '';
+    const rawStatus = row[10] || '';
+
+    let status = 'Neeed to Map';
+    if (rawStatus.toLowerCase().includes('mapped') || rawStatus.toLowerCase().includes('verified')) status = 'Mapped and verified';
+    else if (rawStatus.toLowerCase().includes('not')) status = 'Not Available';
+    else if (rxpCode) status = 'Mapped and verified';
+
     parsedItems.push({
       id: `item-${i}`,
       ITEMCODE: row[0] || `ITEM-${i}`,
@@ -569,14 +585,13 @@ function parseCSVText(csvText) {
       COMPANYNAME: row[4] || 'Supplier',
       SALERATE: row[5] || '0.00',
       MRP: row[6] || '0.00',
-      'RXP Code': row[7] || '',
-      'RXP Name': row[8] || '',
-      'RXP Pack Size': row[9] || '',
-      Status: row[10] || 'Neeed to Map',
-      top_match: row[7] ? { master_product_id: row[7], master_product_name: row[8], master_packaging: row[9], confidence_score: 95 } : null,
+      'RXP Code': rxpCode,
+      'RXP Name': rxpName,
+      'RXP Pack Size': rxpPack,
+      Status: status,
+      top_match: rxpCode ? { master_product_id: rxpCode, master_product_name: rxpName, master_packaging: rxpPack, confidence_score: 95 } : null,
       candidates: [],
-      user_assigned_match: null,
-      status: row[10] || 'PENDING_REVIEW'
+      user_assigned_match: null
     });
   }
 
@@ -606,15 +621,15 @@ async function fetchGoogleSheetData() {
 // Update KPI Counters
 function updateKPICounters() {
   const total = state.items.length;
-  const matched = state.items.filter(i => i.status === 'AI_MATCHED').length;
-  const approved = state.items.filter(i => i.status === 'APPROVED' || i.status === 'Mapped and verified').length;
-  const nearest = state.items.filter(i => i.status === 'NEAREST_MATCH').length;
-  const notAvail = state.items.filter(i => i.status === 'NOT_AVAILABLE').length;
-  const pending = state.items.filter(i => i.status === 'PENDING_REVIEW' || i.status === 'Neeed to Map').length;
+  const matched = state.items.filter(i => i.Status === 'AI Matched').length;
+  const approved = state.items.filter(i => i.Status === 'Mapped and verified' || i.Status === 'APPROVED').length;
+  const nearest = state.items.filter(i => i.Status === 'NEAREST_MATCH').length;
+  const notAvail = state.items.filter(i => i.Status === 'Not Available').length;
+  const pending = state.items.filter(i => i.Status === 'Neeed to Map' || i.Status === 'PENDING_REVIEW').length;
 
   document.getElementById('kpi-total').textContent = total.toLocaleString();
   document.getElementById('kpi-matched').textContent = matched.toLocaleString();
-  document.getElementById('kpi-approved').textContent = approved.toLocaleString();
+  document.getElementById('kpi-approved').textContent = (approved + nearest).toLocaleString();
   document.getElementById('kpi-nearest').textContent = nearest.toLocaleString();
   document.getElementById('kpi-not-avail').textContent = notAvail.toLocaleString();
 
@@ -628,8 +643,8 @@ function updateKPICounters() {
 // Export Summary Box
 function updateExportSummary() {
   const total = state.items.length;
-  const mapped = state.items.filter(i => i.status === 'APPROVED' || i.status === 'NEAREST_MATCH' || i.status === 'Mapped and verified' || i.status === 'AI_MATCHED').length;
-  const notAvail = state.items.filter(i => i.status === 'NOT_AVAILABLE').length;
+  const mapped = state.items.filter(i => i.Status === 'Mapped and verified' || i.Status === 'APPROVED' || i.Status === 'NEAREST_MATCH' || i.Status === 'AI Matched').length;
+  const notAvail = state.items.filter(i => i.Status === 'Not Available').length;
 
   document.getElementById('export-summary-box').innerHTML = `
     <div style="font-size: 0.9rem; line-height: 1.6;">
@@ -647,15 +662,11 @@ function downloadMappedCSV() {
   
   state.items.forEach(item => {
     const m = item.user_assigned_match || item.top_match;
-    const rxpCode = item.status === 'NOT_AVAILABLE' ? '' : (item['RXP Code'] || (m ? m.master_product_id : ''));
-    const rxpName = item.status === 'NOT_AVAILABLE' ? '' : (item['RXP Name'] || (m ? `"${m.master_product_name.replace(/"/g, '""')}"` : ''));
-    const rxpPack = item.status === 'NOT_AVAILABLE' ? '' : (item['RXP Pack Size'] || (m ? `"${(m.master_packaging||'').replace(/"/g, '""')}"` : ''));
+    const rxpCode = item.Status === 'Not Available' ? '' : (item['RXP Code'] || (m ? m.master_product_id : ''));
+    const rxpName = item.Status === 'Not Available' ? '' : (item['RXP Name'] || (m ? `"${m.master_product_name.replace(/"/g, '""')}"` : ''));
+    const rxpPack = item.Status === 'Not Available' ? '' : (item['RXP Pack Size'] || (m ? `"${(m.master_packaging||'').replace(/"/g, '""')}"` : ''));
     
-    let statusText = 'Neeed to Map';
-    if (item.status === 'APPROVED' || item.status === 'Mapped and verified') statusText = 'Mapped and verified';
-    else if (item.status === 'NEAREST_MATCH') statusText = 'Mapped and verified';
-    else if (item.status === 'NOT_AVAILABLE') statusText = 'Not Available';
-    else if (item.status === 'AI_MATCHED') statusText = 'AI Matched';
+    let statusText = item.Status || 'Neeed to Map';
 
     csv += `"${item.ITEMCODE}","${(item.ITEMNAME||'').replace(/"/g, '""')}","${item.PACKING}","${(item.CONTENT||'').replace(/"/g, '""')}","${item.COMPANYNAME}","${item.SALERATE}","${item.MRP}","${rxpCode}",${rxpName},${rxpPack},"${statusText}"\n`;
   });
@@ -672,7 +683,7 @@ function downloadMappedCSV() {
 
 // Sync Mappings to Supabase Table
 async function syncToSupabase() {
-  const mappedItems = state.items.filter(i => i.status !== 'PENDING_REVIEW' && i.status !== 'Neeed to Map');
+  const mappedItems = state.items.filter(i => i.Status !== 'Neeed to Map' && i.Status !== 'PENDING_REVIEW');
   if (mappedItems.length === 0) {
     alert('No items mapped yet to sync!');
     return;
@@ -688,7 +699,7 @@ async function syncToSupabase() {
       rxp_code: item['RXP Code'] || (m ? m.master_product_id : ''),
       rxp_name: item['RXP Name'] || (m ? m.master_product_name : ''),
       rxp_pack_size: item['RXP Pack Size'] || (m ? m.master_packaging : ''),
-      mapping_status: item.status,
+      mapping_status: item.Status,
       created_at: new Date().toISOString()
     };
   });
