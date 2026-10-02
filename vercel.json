@@ -1,5 +1,13 @@
 {
   "version": 2,
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    }
+  ],
   "rewrites": [
     { "source": "/api/search-master", "destination": "/api/search-master.js" },
     { "source": "/api/match-catalog", "destination": "/api/match-catalog.js" },
