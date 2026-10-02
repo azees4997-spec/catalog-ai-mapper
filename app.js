@@ -26,10 +26,93 @@ const SAMPLE_SUPPLIER_ITEMS = [
   { ITEMCODE: '000020', ITEMNAME: 'PODOWART PAINT', PACKING: '10ML', CONTENT: 'ALOEVERA+BENZOIC ACID+PODOPHYLLUM RESIN', COMPANYNAME: 'INVIDA INDIA PVT LIMITED', SALERATE: '222.86', MRP: '292.5', 'RXP Code': 'DRS243475', 'RXP Name': 'Podowart Paint', 'RXP Pack Size': 'bottle of 10 ml paint', Status: 'Mapped and verified' }
 ];
 
-// Initialize DOM elements & Listeners
-document.addEventListener('DOMContentLoaded', () => {
+// Persistent Storage Manager (IndexedDB + localStorage)
+const StorageManager = {
+  dbName: 'CatalogMapperDB',
+  storeName: 'catalog_state',
+
+  openDB: function() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, 1);
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(this.storeName)) {
+          db.createObjectStore(this.storeName);
+        }
+      };
+      request.onsuccess = (e) => resolve(e.target.result);
+      request.onerror = (e) => reject(e.target.error);
+    });
+  },
+
+  saveState: async function(items, webhookUrl) {
+    if (webhookUrl !== undefined) {
+      localStorage.setItem('catalog_webhook_url', webhookUrl);
+    }
+    try {
+      const db = await this.openDB();
+      const tx = db.transaction(this.storeName, 'readwrite');
+      const store = tx.objectStore(this.storeName);
+      store.put(items, 'saved_items');
+    } catch (e) {
+      try {
+        localStorage.setItem('catalog_saved_items', JSON.stringify(items));
+      } catch (err) {}
+    }
+  },
+
+  loadState: async function() {
+    try {
+      const db = await this.openDB();
+      return new Promise((resolve) => {
+        const tx = db.transaction(this.storeName, 'readonly');
+        const store = tx.objectStore(this.storeName);
+        const req = store.get('saved_items');
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      });
+    } catch (e) {
+      try {
+        const raw = localStorage.getItem('catalog_saved_items');
+        return raw ? JSON.parse(raw) : null;
+      } catch (err) {
+        return null;
+      }
+    }
+  }
+};
+
+window.updateWebhookStatusUI = function() {
+  const btnWebhook = document.getElementById('btn-webhook-modal');
+  if (!btnWebhook) return;
+  if (state.webhookUrl && state.webhookUrl.trim()) {
+    btnWebhook.style.background = 'rgba(16, 185, 129, 0.25)';
+    btnWebhook.style.borderColor = '#10b981';
+    btnWebhook.style.color = '#6ee7b7';
+    btnWebhook.style.boxShadow = '0 0 12px rgba(16, 185, 129, 0.3)';
+    btnWebhook.innerHTML = `<span class="icon">⚡</span> Webhook Sync (Connected)`;
+  } else {
+    btnWebhook.style.background = 'rgba(99, 102, 241, 0.15)';
+    btnWebhook.style.borderColor = 'var(--primary)';
+    btnWebhook.style.color = '#a5b4fc';
+    btnWebhook.style.boxShadow = 'none';
+    btnWebhook.innerHTML = `<span class="icon">⚡</span> Sheet Webhook Sync`;
+  }
+};
+
+// Initialize DOM elements & Listeners with persistent state restoration
+document.addEventListener('DOMContentLoaded', async () => {
   initEventListeners();
-  loadSampleData();
+  window.updateWebhookStatusUI();
+
+  const savedItems = await StorageManager.loadState();
+  if (savedItems && Array.isArray(savedItems) && savedItems.length > 0) {
+    state.items = savedItems;
+    updateKPICounters();
+    renderTable();
+  } else {
+    loadSampleData();
+  }
 });
 
 function initEventListeners() {
@@ -155,6 +238,7 @@ function loadSampleData() {
 
   updateKPICounters();
   renderTable();
+  StorageManager.saveState(state.items, state.webhookUrl);
 }
 
 // Parse Pasted Sheet Data matching exact columns: ITEMCODE, ITEMNAME, PACKING, CONTENT, COMPANYNAME, SALERATE, MRP, RXP Code, RXP Name, RXP Pack Size, Status
@@ -225,6 +309,7 @@ function parsePastedSheetData() {
     state.items = parsedItems;
     updateKPICounters();
     renderTable();
+    StorageManager.saveState(state.items, state.webhookUrl);
     closeModal('import-modal');
     alert(`Loaded ${parsedItems.length} supplier items from Google Sheet! Click "Run AI Batch Match" to process.`);
   } else {
@@ -300,6 +385,7 @@ async function startBatchMatchingProcess() {
     
     updateKPICounters();
     renderTable();
+    StorageManager.saveState(state.items, state.webhookUrl);
   }
 
   state.isMatchingActive = false;
@@ -323,6 +409,7 @@ window.selectCandidateMatchDirect = function(itemId, masterProductId, masterProd
   sendWebhookUpdate(item);
   updateKPICounters();
   renderTable();
+  StorageManager.saveState(state.items, state.webhookUrl);
 };
 
 // Render Cards View matching user specification:
@@ -539,7 +626,8 @@ window.saveWebhookUrl = function() {
   const input = document.getElementById('webhook-url-input');
   if (!input) return;
   state.webhookUrl = input.value.trim();
-  localStorage.setItem('catalog_webhook_url', state.webhookUrl);
+  StorageManager.saveState(state.items, state.webhookUrl);
+  window.updateWebhookStatusUI();
   closeModal('webhook-modal');
   alert(`⚡ Google Sheet Webhook Sync enabled!\n\nYour UI clicks will now update Google Sheet Sheet3 in real-time.`);
 };
@@ -569,6 +657,7 @@ window.confirmMatch = function(itemId) {
     sendWebhookUpdate(item);
     updateKPICounters();
     renderTable();
+    StorageManager.saveState(state.items, state.webhookUrl);
   }
 };
 
@@ -584,6 +673,7 @@ window.markNotAvailable = function(itemId) {
     sendWebhookUpdate(item);
     updateKPICounters();
     renderTable();
+    StorageManager.saveState(state.items, state.webhookUrl);
   }
 };
 
@@ -638,6 +728,7 @@ window.selectCandidateMatch = function(masterProductId) {
     closeModal('candidate-modal');
     updateKPICounters();
     renderTable();
+    StorageManager.saveState(state.items, state.webhookUrl);
   }
 };
 
@@ -717,6 +808,7 @@ window.assignCustomMasterMatch = function(id, name, composition, packaging) {
   closeModal('search-modal');
   updateKPICounters();
   renderTable();
+  StorageManager.saveState(state.items, state.webhookUrl);
 };
 
 // CSV File Upload Handler
@@ -784,6 +876,7 @@ function parseCSVText(csvText) {
   state.items = parsedItems;
   updateKPICounters();
   renderTable();
+  StorageManager.saveState(state.items, state.webhookUrl);
   alert(`Loaded ${parsedItems.length} supplier items from CSV!`);
 }
 
