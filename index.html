@@ -75,14 +75,14 @@
           <div class="kpi-subtitle">High Confidence AI Pairings</div>
         </div>
         <div class="kpi-card verified">
-          <div class="kpi-title">User Confirmed / Approved</div>
+          <div class="kpi-title">Mapped & Verified</div>
           <div class="kpi-value" id="kpi-approved">0</div>
-          <div class="kpi-subtitle">Manually Verified Mappings</div>
+          <div class="kpi-subtitle">User Verified RXP Codes</div>
         </div>
         <div class="kpi-card nearest">
           <div class="kpi-title">Nearest Match Selected</div>
           <div class="kpi-value" id="kpi-nearest">0</div>
-          <div class="kpi-subtitle">Hand-picked Nearest SKU</div>
+          <div class="kpi-subtitle">Hand-picked Nearest RXP</div>
         </div>
         <div class="kpi-card not-avail">
           <div class="kpi-title">Marked "Not Available"</div>
@@ -95,14 +95,14 @@
       <section class="toolbar">
         <div class="filter-tabs">
           <button class="tab-btn active" data-filter="ALL">All Items (<span id="tab-count-all">0</span>)</button>
-          <button class="tab-btn" data-filter="PENDING">Pending Review (<span id="tab-count-pending">0</span>)</button>
+          <button class="tab-btn" data-filter="PENDING">Neeed to Map (<span id="tab-count-pending">0</span>)</button>
           <button class="tab-btn" data-filter="AI_MATCHED">AI Matched (<span id="tab-count-ai">0</span>)</button>
-          <button class="tab-btn" data-filter="APPROVED">Approved (<span id="tab-count-approved">0</span>)</button>
+          <button class="tab-btn" data-filter="APPROVED">Mapped and verified (<span id="tab-count-approved">0</span>)</button>
           <button class="tab-btn" data-filter="NOT_AVAILABLE">Not Available (<span id="tab-count-notavail">0</span>)</button>
         </div>
 
         <div class="search-box-wrapper">
-          <input type="text" id="search-input" class="search-input" placeholder="Filter by supplier item name, code, composition...">
+          <input type="text" id="search-input" class="search-input" placeholder="Filter by ITEMNAME, ITEMCODE, CONTENT, COMPANYNAME, RXP Code...">
         </div>
       </section>
 
@@ -112,13 +112,15 @@
           <table class="mapping-table">
             <thead>
               <tr>
-                <th width="4%">#</th>
-                <th width="12%">Supplier Code & Name</th>
-                <th width="24%">Supplier Catalogue Item</th>
-                <th width="28%">AI Recommended Master Product (Supabase June_Data)</th>
-                <th width="10%">Match Score</th>
-                <th width="10%">Status</th>
-                <th width="12%">Verification & Action</th>
+                <th width="3%">#</th>
+                <th width="8%">ITEMCODE</th>
+                <th width="16%">ITEMNAME & COMPANYNAME</th>
+                <th width="18%">PACKING & CONTENT</th>
+                <th width="8%">RXP Code</th>
+                <th width="20%">RXP Name & RXP Pack Size</th>
+                <th width="8%">Score</th>
+                <th width="9%">Status</th>
+                <th width="10%">Verification Action</th>
               </tr>
             </thead>
             <tbody id="mapping-table-body">
@@ -148,7 +150,7 @@
           <!-- Tab 1: Paste Google Sheet Data -->
           <div id="import-tab-paste" class="import-tab-content active">
             <p style="margin-bottom: 10px; font-size: 0.88rem;">Copy rows directly from your Google Sheet (<strong>Sheet3</strong>) and paste them below:</p>
-            <textarea id="paste-sheet-input" class="form-input" style="height: 160px; font-family: monospace; font-size: 0.8rem;" placeholder="ITEMCODE&#9;ITEMNAME&#9;PACKING&#9;CONTENT&#9;COMPANYNAME&#9;SALERATE&#9;MRP"></textarea>
+            <textarea id="paste-sheet-input" class="form-input" style="height: 160px; font-family: monospace; font-size: 0.8rem;" placeholder="ITEMCODE&#9;ITEMNAME&#9;PACKING&#9;CONTENT&#9;COMPANYNAME&#9;SALERATE&#9;MRP&#9;RXP Code&#9;RXP Name&#9;RXP Pack Size&#9;Status"></textarea>
             <button class="btn btn-primary btn-block" style="margin-top: 14px;" id="btn-parse-pasted-sheet">Parse & Load Google Sheet Data</button>
           </div>
 
@@ -178,7 +180,7 @@
 
           <!-- Tab 4: Sample Data -->
           <div id="import-tab-sample" class="import-tab-content">
-            <p>Load sample pharmaceutical items to test auto-matching against your 743,963 Supabase products:</p>
+            <p>Load your exact sample items (A RET GEL, OLESOFT MAX, HEXILAK, HYDE CREAM, PODOWART) to test AI matching:</p>
             <button class="btn btn-primary btn-block" id="btn-load-sample">Load Sample Catalog Data</button>
           </div>
 
@@ -199,12 +201,12 @@
           </p>
 
           <div class="form-group">
-            <label>Product Name Match Weight (0.0 to 1.0):</label>
+            <label>ITEMNAME Match Weight (0.0 to 1.0):</label>
             <input type="number" step="0.05" min="0" max="1" id="rule-weight-name" class="form-input" value="0.45">
           </div>
 
           <div class="form-group">
-            <label>Composition / Content Match Weight (0.0 to 1.0):</label>
+            <label>CONTENT Match Weight (0.0 to 1.0):</label>
             <input type="number" step="0.05" min="0" max="1" id="rule-weight-comp" class="form-input" value="0.40">
           </div>
 
@@ -228,13 +230,13 @@
       <div class="modal-card wide">
         <div class="modal-header">
           <div>
-            <h3>Select Nearest Master Product</h3>
+            <h3>Select Nearest Master Product (RXP)</h3>
             <p class="modal-subtitle" id="candidate-supplier-item-title">Supplier Item: ...</p>
           </div>
           <button class="close-btn" id="close-candidate-modal">&times;</button>
         </div>
         <div class="modal-body">
-          <p class="section-lead">Top AI candidate matches retrieved from Supabase <strong>June_Data</strong> (743,963 records):</p>
+          <p class="section-lead">Top AI candidate RXP matches retrieved from Supabase <strong>June_Data</strong> (743,963 records):</p>
           <div id="candidate-list" class="candidate-list"></div>
         </div>
       </div>
@@ -252,7 +254,7 @@
         </div>
         <div class="modal-body">
           <div class="search-input-group">
-            <input type="text" id="master-search-query" class="form-input large" placeholder="Type drug name, composition, strength, or Product ID...">
+            <input type="text" id="master-search-query" class="form-input large" placeholder="Type RXP name, CONTENT composition, strength, or RXP Code...">
             <button class="btn btn-primary" id="btn-execute-master-search">Search Supabase</button>
           </div>
           <div id="master-search-results" class="search-results-list">
@@ -270,7 +272,7 @@
           <button class="close-btn" id="close-export-modal">&times;</button>
         </div>
         <div class="modal-body">
-          <p>Export your mapped catalog containing supplier item codes, verified master Product IDs, confidence scores, and status flags.</p>
+          <p>Export your mapped catalog containing exact columns: ITEMCODE, ITEMNAME, PACKING, CONTENT, COMPANYNAME, SALERATE, MRP, RXP Code, RXP Name, RXP Pack Size, Status.</p>
           <div class="export-summary-box" id="export-summary-box"></div>
           <div class="export-actions">
             <button class="btn btn-primary btn-block" id="btn-download-csv">📥 Download Mapped CSV Spreadsheet</button>
