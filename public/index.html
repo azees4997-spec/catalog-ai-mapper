@@ -81,9 +81,9 @@
           <span class="status-dot"></span>
           <span>Supabase: <strong>June_Data</strong> (743,963 products)</span>
         </div>
-        <div class="status-pill active" id="sheet-status-pill">
+        <div class="status-pill active" id="sheet-status-pill" style="cursor: pointer;" onclick="autoFetchGoogleSheetData(false)" title="Click to fetch latest live Google Sheet Sheet3 data">
           <span class="status-dot"></span>
-          <span id="sheet-name-text">Google Sheet: <strong>Sheet3</strong></span>
+          <span id="sheet-name-text">Google Sheet: <strong>Sheet3</strong> (Live Sync 🔄)</span>
         </div>
       </div>
 
@@ -396,6 +396,6 @@ function doPost(e) {
 
   </div>
 
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>

@@ -108,7 +108,48 @@ window.updateWebhookStatusUI = function() {
   }
 };
 
-// Initialize DOM elements & Listeners with persistent state restoration
+// Auto-Fetch Google Sheet Sheet3 data live from /api/fetch-sheet
+window.autoFetchGoogleSheetData = async function(silent = false) {
+  const progressBar = document.getElementById('progress-bar-container');
+  const progressText = document.getElementById('progress-text');
+  const progressFill = document.getElementById('progress-fill');
+
+  if (!silent && progressBar) {
+    progressBar.classList.remove('hidden');
+    progressFill.style.width = '30%';
+    progressText.textContent = 'Fetching all live Google Sheet Sheet3 items (29,267 rows)...';
+  }
+
+  try {
+    const res = await fetch('/api/fetch-sheet');
+    const csvData = await res.text();
+    
+    if (csvData && !csvData.includes('<!DOCTYPE html>') && csvData.includes('ITEMCODE')) {
+      if (!silent && progressBar) {
+        progressFill.style.width = '70%';
+        progressText.textContent = 'Parsing Google Sheet rows & status buckets...';
+      }
+
+      parseCSVText(csvData, silent);
+      
+      if (!silent && progressBar) {
+        progressFill.style.width = '100%';
+        progressText.textContent = `Successfully loaded ${state.items.length.toLocaleString()} items live from Google Sheet Sheet3!`;
+        setTimeout(() => progressBar.classList.add('hidden'), 2000);
+      }
+      return true;
+    }
+  } catch (err) {
+    console.error('Auto-fetch sheet error:', err);
+  } finally {
+    if (!silent && progressBar && progressFill.style.width !== '100%') {
+      progressBar.classList.add('hidden');
+    }
+  }
+  return false;
+};
+
+// Initialize DOM elements & Listeners with persistent state restoration & live Google Sheet auto-fetch
 document.addEventListener('DOMContentLoaded', async () => {
   initEventListeners();
   window.updateWebhookStatusUI();
@@ -118,8 +159,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.items = savedItems;
     updateKPICounters();
     renderTable();
+    // Refresh in background silently
+    window.autoFetchGoogleSheetData(true);
   } else {
-    loadSampleData();
+    // Cold start: auto-fetch all live Google Sheet Sheet3 data
+    const fetched = await window.autoFetchGoogleSheetData(false);
+    if (!fetched) loadSampleData();
   }
 });
 
@@ -830,23 +875,47 @@ function handleCSVUpload(file) {
   reader.readAsText(file);
 }
 
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim().replace(/^"|"$/g, ''));
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim().replace(/^"|"$/g, ''));
+  return result;
+}
+
 // Parse CSV Text into Supplier Items
-function parseCSVText(csvText) {
+function parseCSVText(csvText, silent = false) {
   const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
   if (lines.length < 2) {
-    alert('Invalid CSV file format.');
+    if (!silent) alert('Invalid CSV file format.');
     return;
   }
 
-  const parsedItems = [];
-  for (let i = 1; i < lines.length; i++) {
-    const row = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-    if (row.length < 2) continue;
+  let startIndex = 0;
+  const firstLineCols = lines[0].split('\t').length > 1 ? lines[0].split('\t') : parseCSVLine(lines[0]);
+  const isHeaderRow = firstLineCols.some(c => c.toUpperCase().includes('ITEMNAME') || c.toUpperCase().includes('ITEMCODE') || c.toUpperCase().includes('CONTENT'));
+  if (isHeaderRow) startIndex = 1;
 
-    const rxpCode = row[7] || '';
-    const rxpName = row[8] || '';
-    const rxpPack = row[9] || '';
-    const rawStatus = row[10] || '';
+  const parsedItems = [];
+  for (let i = startIndex; i < lines.length; i++) {
+    const cols = lines[i].split('\t').length > 1 ? lines[i].split('\t') : parseCSVLine(lines[i]);
+    if (cols.length < 2) continue;
+
+    const rxpCode = cols[7] || '';
+    const rxpName = cols[8] || '';
+    const rxpPack = cols[9] || '';
+    const rawStatus = cols[10] || '';
 
     const sLower = rawStatus.toLowerCase();
     let status = 'Neeed to Map';
@@ -863,14 +932,14 @@ function parseCSVText(csvText) {
     }
 
     parsedItems.push({
-      id: `item-${i}`,
-      ITEMCODE: row[0] || `ITEM-${i}`,
-      ITEMNAME: row[1] || 'Product Name',
-      PACKING: row[2] || '',
-      CONTENT: row[3] || '',
-      COMPANYNAME: row[4] || 'Supplier',
-      SALERATE: row[5] || '0.00',
-      MRP: row[6] || '0.00',
+      id: `item-${i + 1}`,
+      ITEMCODE: cols[0] || `ITEM-${i + 1}`,
+      ITEMNAME: cols[1] || 'Product Name',
+      PACKING: cols[2] || '',
+      CONTENT: cols[3] || '',
+      COMPANYNAME: cols[4] || 'Supplier',
+      SALERATE: cols[5] || '0.00',
+      MRP: cols[6] || '0.00',
       'RXP Code': rxpCode,
       'RXP Name': rxpName,
       'RXP Pack Size': rxpPack,
@@ -881,11 +950,13 @@ function parseCSVText(csvText) {
     });
   }
 
-  state.items = parsedItems;
-  updateKPICounters();
-  renderTable();
-  StorageManager.saveState(state.items, state.webhookUrl);
-  alert(`Loaded ${parsedItems.length} supplier items from CSV!`);
+  if (parsedItems.length > 0) {
+    state.items = parsedItems;
+    updateKPICounters();
+    renderTable();
+    StorageManager.saveState(state.items, state.webhookUrl);
+    if (!silent) alert(`Loaded ${parsedItems.length.toLocaleString()} supplier items from Google Sheet Sheet3!`);
+  }
 }
 
 // Fetch Google Sheet Data
