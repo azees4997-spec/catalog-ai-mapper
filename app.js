@@ -16,13 +16,13 @@ let state = {
 
 // Exact Sample Supplier Catalog Items matching user screenshot
 const SAMPLE_SUPPLIER_ITEMS = [
-  { ITEMCODE: '000001', ITEMNAME: 'A RET 0.025 GEL', PACKING: '20GM', CONTENT: 'TRETINOIN', COMPANYNAME: 'INVIDA INDIA PVT LIMITED', SALERATE: '100.57', MRP: '132', 'RXP Code': 'DRS023287', 'RXP Name': 'A-Ret 0.025% Gel', 'RXP Pack Size': 'tube of 20 gm Gel', Status: 'Mapped and verified' },
-  { ITEMCODE: '000002', ITEMNAME: 'A RET 0.05 GEL', PACKING: '20GM', CONTENT: 'TRETINOIN', COMPANYNAME: 'INVIDA INDIA PVT LIMITED', SALERATE: '129.52', MRP: '170', 'RXP Code': 'DRS023269', 'RXP Name': 'A-Ret 0.05% Gel', 'RXP Pack Size': 'tube of 20 gm Gel', Status: 'Mapped and verified' },
-  { ITEMCODE: '000003', ITEMNAME: 'A RET 0.1 GEL', PACKING: '20GM', CONTENT: 'TRETINOIN', COMPANYNAME: 'INVIDA INDIA PVT LIMITED', SALERATE: '179.05', MRP: '235', 'RXP Code': 'DRS023272', 'RXP Name': 'A-Ret 0.1% Gel', 'RXP Pack Size': 'tube of 20 gm Gel', Status: 'Mapped and verified' },
+  { ITEMCODE: '000001', ITEMNAME: 'A RET 0.025 GEL', PACKING: '20GM', CONTENT: 'TRETINOIN', COMPANYNAME: 'INVIDA INDIA PVT LIMITED', SALERATE: '100.57', MRP: '132', 'RXP Code': 'DRS023287', 'RXP Name': 'A-Ret 0.025% Gel', 'RXP Pack Size': 'tube of 20 gm Gel', Status: 'Mapped' },
+  { ITEMCODE: '000002', ITEMNAME: 'A RET 0.05 GEL', PACKING: '20GM', CONTENT: 'TRETINOIN', COMPANYNAME: 'INVIDA INDIA PVT LIMITED', SALERATE: '129.52', MRP: '170', 'RXP Code': 'DRS023269', 'RXP Name': 'A-Ret 0.05% Gel', 'RXP Pack Size': 'tube of 20 gm Gel', Status: 'Mapped' },
+  { ITEMCODE: '000003', ITEMNAME: 'A RET 0.1 GEL', PACKING: '20GM', CONTENT: 'TRETINOIN', COMPANYNAME: 'INVIDA INDIA PVT LIMITED', SALERATE: '179.05', MRP: '235', 'RXP Code': 'DRS023272', 'RXP Name': 'A-Ret 0.1% Gel', 'RXP Pack Size': 'tube of 20 gm Gel', Status: 'Mapped' },
   { ITEMCODE: '00001', ITEMNAME: 'OLESOFT MAX LOTION', PACKING: '200ML', CONTENT: 'LIQUID PARAFFIN+WHITE SOFT PARAFFIN', COMPANYNAME: 'ALKEM DERMACARE[82]', SALERATE: '463.54', MRP: '608.4', 'RXP Code': '', 'RXP Name': '', 'RXP Pack Size': '', Status: 'Neeed to Map' },
-  { ITEMCODE: '000013', ITEMNAME: 'HEXILAK GEL', PACKING: '20GM', CONTENT: 'ALLANTOIN+EXTRACTUM CEPAE+HEPARIN', COMPANYNAME: 'INVIDA INDIA PVT LIMITED', SALERATE: '414.29', MRP: '543.75', 'RXP Code': 'DRS141951', 'RXP Name': 'Hexilak Gel', 'RXP Pack Size': 'tube of 20 gm Gel', Status: 'Mapped and verified' },
-  { ITEMCODE: '000014', ITEMNAME: 'HYDE CREAM', PACKING: '30GM', CONTENT: 'HYDROQUINONE', COMPANYNAME: 'INVIDA INDIA PVT LIMITED', SALERATE: '97.14', MRP: '127.5', 'RXP Code': 'DRS350516', 'RXP Name': 'HYde Cream', 'RXP Pack Size': 'tube of 30 gm Cream', Status: 'Mapped and verified' },
-  { ITEMCODE: '000020', ITEMNAME: 'PODOWART PAINT', PACKING: '10ML', CONTENT: 'ALOEVERA+BENZOIC ACID+PODOPHYLLUM RESIN', COMPANYNAME: 'INVIDA INDIA PVT LIMITED', SALERATE: '222.86', MRP: '292.5', 'RXP Code': 'DRS243475', 'RXP Name': 'Podowart Paint', 'RXP Pack Size': 'bottle of 10 ml paint', Status: 'Mapped and verified' }
+  { ITEMCODE: '000013', ITEMNAME: 'HEXILAK GEL', PACKING: '20GM', CONTENT: 'ALLANTOIN+EXTRACTUM CEPAE+HEPARIN', COMPANYNAME: 'INVIDA INDIA PVT LIMITED', SALERATE: '414.29', MRP: '543.75', 'RXP Code': 'DRS141951', 'RXP Name': 'Hexilak Gel', 'RXP Pack Size': 'tube of 20 gm Gel', Status: 'Mapped' },
+  { ITEMCODE: '000014', ITEMNAME: 'HYDE CREAM', PACKING: '30GM', CONTENT: 'HYDROQUINONE', COMPANYNAME: 'INVIDA INDIA PVT LIMITED', SALERATE: '97.14', MRP: '127.5', 'RXP Code': 'DRS350516', 'RXP Name': 'HYde Cream', 'RXP Pack Size': 'tube of 30 gm Cream', Status: 'Mapped' },
+  { ITEMCODE: '000020', ITEMNAME: 'PODOWART PAINT', PACKING: '10ML', CONTENT: 'ALOEVERA+BENZOIC ACID+PODOPHYLLUM RESIN', COMPANYNAME: 'INVIDA INDIA PVT LIMITED', SALERATE: '222.86', MRP: '292.5', 'RXP Code': 'DRS243475', 'RXP Name': 'Podowart Paint', 'RXP Pack Size': 'bottle of 10 ml paint', Status: 'Mapped' }
 ];
 
 // Initialize DOM elements & Listeners
@@ -130,7 +130,7 @@ function loadSampleData() {
     } : null,
     candidates: [],
     user_assigned_match: null,
-    Status: item.Status || (item['RXP Code'] ? 'Mapped and verified' : 'Neeed to Map')
+    Status: item.Status || (item['RXP Code'] ? 'Mapped' : 'Neeed to Map')
   }));
 
   updateKPICounters();
@@ -169,9 +169,9 @@ function parsePastedSheetData() {
     const rawStatus = cleanCols[10] || '';
 
     let status = 'Neeed to Map';
-    if (rawStatus.toLowerCase().includes('mapped') || rawStatus.toLowerCase().includes('verified')) status = 'Mapped and verified';
+    if (rawStatus.toLowerCase().includes('mapped') || rawStatus.toLowerCase().includes('verified')) status = 'Mapped';
     else if (rawStatus.toLowerCase().includes('not')) status = 'Not Available';
-    else if (rxpCode) status = 'Mapped and verified';
+    else if (rxpCode) status = 'Mapped';
 
     parsedItems.push({
       id: `item-${i + 1}`,
@@ -287,7 +287,7 @@ function renderTable() {
   let filtered = state.items.filter(item => {
     if (state.currentFilter === 'PENDING' && item.Status !== 'Neeed to Map' && item.Status !== 'PENDING_REVIEW') return false;
     if (state.currentFilter === 'AI_MATCHED' && item.Status !== 'AI Matched') return false;
-    if (state.currentFilter === 'APPROVED' && (item.Status !== 'Mapped and verified' && item.Status !== 'APPROVED' && item.Status !== 'NEAREST_MATCH')) return false;
+    if (state.currentFilter === 'APPROVED' && (item.Status !== 'Mapped' && item.Status !== 'Mapped and verified' && item.Status !== 'APPROVED' && item.Status !== 'NEAREST_MATCH')) return false;
     if (state.currentFilter === 'NOT_AVAILABLE' && item.Status !== 'Not Available') return false;
 
     if (state.searchQuery) {
@@ -318,8 +318,8 @@ function renderTable() {
     const score = match ? match.confidence_score : 0;
 
     let statusBadgeHtml = '';
-    if (item.Status === 'Mapped and verified' || item.Status === 'APPROVED') statusBadgeHtml = `<span class="badge badge-approved">✓ Mapped and verified</span>`;
-    else if (item.Status === 'NEAREST_MATCH') statusBadgeHtml = `<span class="badge badge-nearest">⚡ Mapped and verified</span>`;
+    if (item.Status === 'Mapped' || item.Status === 'Mapped and verified' || item.Status === 'APPROVED') statusBadgeHtml = `<span class="badge badge-approved">✓ Mapped</span>`;
+    else if (item.Status === 'NEAREST_MATCH') statusBadgeHtml = `<span class="badge badge-nearest">⚡ Mapped</span>`;
     else if (item.Status === 'Not Available') statusBadgeHtml = `<span class="badge badge-notavail">✕ Not Available</span>`;
     else if (item.Status === 'AI Matched') statusBadgeHtml = `<span class="badge badge-ai">⚡ AI Suggested</span>`;
     else statusBadgeHtml = `<span class="badge badge-pending">Neeed to Map</span>`;
@@ -378,7 +378,7 @@ function renderTable() {
   }
 }
 
-// Confirm & Map Action: Fills RXP Code, RXP Name, RXP Pack Size and sets Status = 'Mapped and verified'
+// Confirm & Map Action: Fills RXP Code, RXP Name, RXP Pack Size and sets Status = 'Mapped'
 window.confirmMatch = function(itemId) {
   const item = state.items.find(i => i.id === itemId);
   if (item) {
@@ -392,7 +392,7 @@ window.confirmMatch = function(itemId) {
       item['RXP Name'] = match.master_product_name;
       item['RXP Pack Size'] = match.master_packaging;
     }
-    item.Status = 'Mapped and verified';
+    item.Status = 'Mapped';
     updateKPICounters();
     renderTable();
   }
@@ -447,7 +447,7 @@ window.openCandidateModal = function(itemId) {
   openModal('candidate-modal');
 };
 
-// Select Candidate from Drawer: Fills RXP fields and sets Status = 'Mapped and verified'
+// Select Candidate from Drawer: Fills RXP fields and sets Status = 'Mapped'
 window.selectCandidateMatch = function(masterProductId) {
   const item = state.selectedItemForCandidateModal;
   if (!item) return;
@@ -458,7 +458,7 @@ window.selectCandidateMatch = function(masterProductId) {
     item['RXP Code'] = candidate.master_product_id;
     item['RXP Name'] = candidate.master_product_name;
     item['RXP Pack Size'] = candidate.master_packaging;
-    item.Status = 'Mapped and verified';
+    item.Status = 'Mapped';
     closeModal('candidate-modal');
     updateKPICounters();
     renderTable();
@@ -535,7 +535,7 @@ window.assignCustomMasterMatch = function(id, name, composition, packaging) {
   item['RXP Code'] = id;
   item['RXP Name'] = name;
   item['RXP Pack Size'] = packaging;
-  item.Status = 'Mapped and verified';
+  item.Status = 'Mapped';
 
   closeModal('search-modal');
   updateKPICounters();
@@ -572,9 +572,9 @@ function parseCSVText(csvText) {
     const rawStatus = row[10] || '';
 
     let status = 'Neeed to Map';
-    if (rawStatus.toLowerCase().includes('mapped') || rawStatus.toLowerCase().includes('verified')) status = 'Mapped and verified';
+    if (rawStatus.toLowerCase().includes('mapped')) status = 'Mapped';
     else if (rawStatus.toLowerCase().includes('not')) status = 'Not Available';
-    else if (rxpCode) status = 'Mapped and verified';
+    else if (rxpCode) status = 'Mapped';
 
     parsedItems.push({
       id: `item-${i}`,
@@ -622,7 +622,7 @@ async function fetchGoogleSheetData() {
 function updateKPICounters() {
   const total = state.items.length;
   const matched = state.items.filter(i => i.Status === 'AI Matched').length;
-  const approved = state.items.filter(i => i.Status === 'Mapped and verified' || i.Status === 'APPROVED').length;
+  const approved = state.items.filter(i => i.Status === 'Mapped' || i.Status === 'Mapped and verified' || i.Status === 'APPROVED').length;
   const nearest = state.items.filter(i => i.Status === 'NEAREST_MATCH').length;
   const notAvail = state.items.filter(i => i.Status === 'Not Available').length;
   const pending = state.items.filter(i => i.Status === 'Neeed to Map' || i.Status === 'PENDING_REVIEW').length;
@@ -643,13 +643,13 @@ function updateKPICounters() {
 // Export Summary Box
 function updateExportSummary() {
   const total = state.items.length;
-  const mapped = state.items.filter(i => i.Status === 'Mapped and verified' || i.Status === 'APPROVED' || i.Status === 'NEAREST_MATCH' || i.Status === 'AI Matched').length;
+  const mapped = state.items.filter(i => i.Status === 'Mapped' || i.Status === 'Mapped and verified' || i.Status === 'APPROVED' || i.Status === 'NEAREST_MATCH' || i.Status === 'AI Matched').length;
   const notAvail = state.items.filter(i => i.Status === 'Not Available').length;
 
   document.getElementById('export-summary-box').innerHTML = `
     <div style="font-size: 0.9rem; line-height: 1.6;">
       <p><strong>Total Supplier Items:</strong> ${total.toLocaleString()}</p>
-      <p><strong>Mapped & Verified Items:</strong> ${mapped.toLocaleString()}</p>
+      <p><strong>Mapped Items:</strong> ${mapped.toLocaleString()}</p>
       <p><strong>Marked as Not Available:</strong> ${notAvail.toLocaleString()}</p>
       <p><strong>Neeed to Map:</strong> ${(total - (mapped + notAvail)).toLocaleString()}</p>
     </div>
