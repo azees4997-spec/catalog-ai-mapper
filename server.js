@@ -68,43 +68,112 @@ function fetchUrlSmart(targetUrl, maxRedirects = 5) {
   });
 }
 
-function computeMetadataScores(item, cand) {
-  const suppName = (item.ITEMNAME || '').toLowerCase();
-  const suppPack = (item.PACKING || '').toLowerCase();
-  const suppMfg = (item.COMPANYNAME || '').toLowerCase();
-  const suppComp = (item.CONTENT || '').toLowerCase();
+const DOSAGE_STOP_WORDS = new Set([
+  'tab', 'tablet', 'tablets', 'cap', 'capsule', 'capsules', 'syrup', 'syp',
+  'inj', 'injection', 'strip', 'mg', 'ml', 'gm', 'g', 'pvt', 'ltd', 'limited', 'india',
+  'oint', 'ointment', 'crm', 'cream', 'gel', 'jel', 'sol', 'soln', 'solution',
+  'soap', 'lotion', 'lot', 'paint', 'drop', 'drops', 'powder', 'suspension', 'susp'
+]);
 
+function extractSupplierMetadata(item) {
+  const rawName = (item.ITEMNAME || '').trim();
+  const rawMfg = (item.COMPANYNAME || '').trim();
+  const rawComp = (item.CONTENT || '').trim();
+  const rawPack = (item.PACKING || '').trim();
+
+  const nameTokens = rawName
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter(t => t.length > 1);
+
+  const brandTokens = nameTokens.filter(t => !DOSAGE_STOP_WORDS.has(t.toLowerCase()));
+  const brandPrefix = brandTokens.length > 0 ? brandTokens[0] : (nameTokens[0] || '');
+
+  let dosageForm = '';
+  const lowerName = rawName.toLowerCase();
+  if (lowerName.includes('oint') || lowerName.includes('ointment')) dosageForm = 'ointment';
+  else if (lowerName.includes('gel') || lowerName.includes('jel')) dosageForm = 'gel';
+  else if (lowerName.includes('cream') || lowerName.includes('crm')) dosageForm = 'cream';
+  else if (lowerName.includes('sol') || lowerName.includes('solution')) dosageForm = 'solution';
+  else if (lowerName.includes('soap')) dosageForm = 'soap';
+  else if (lowerName.includes('lotion')) dosageForm = 'lotion';
+  else if (lowerName.includes('tab') || lowerName.includes('tablet')) dosageForm = 'tablet';
+  else if (lowerName.includes('cap') || lowerName.includes('capsule')) dosageForm = 'capsule';
+
+  const packMatch = rawPack.match(/(\d+(?:\.\d+)?)\s*(gm|g|ml|mg|tab|cap|capsule|strip|tube|bottle)?/i);
+  const packVal = packMatch ? packMatch[1] : '';
+  const packUnit = packMatch && packMatch[2] ? packMatch[2].toLowerCase() : '';
+
+  return {
+    rawName,
+    brandPrefix,
+    brandTokens,
+    dosageForm,
+    packVal,
+    packUnit,
+    rawMfg,
+    rawComp
+  };
+}
+
+function computeMetadataScores(meta, cand) {
   const candName = (cand['Product Name'] || '').toLowerCase();
   const candPack = (cand['Packaging Detail'] || '').toLowerCase();
   const candComp = (cand['Composition'] || '').toLowerCase();
-  const candMfg = (cand['Manufacturer'] || cand['Marketer'] || cand['Company'] || candName).toLowerCase();
+  const candMfg = (cand['Manufacturer'] || cand['Marketer'] || '').toLowerCase();
 
-  // 1. Item Name Score
-  const nameTokens = suppName.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 1);
-  let nameMatches = 0;
-  nameTokens.forEach(t => { if (candName.includes(t)) nameMatches++; });
-  const nameScore = nameTokens.length > 0 ? Math.min(100, Math.round((nameMatches / nameTokens.length) * 100)) : 50;
+  let nameScore = 0;
+  const lowerBrand = meta.brandPrefix.toLowerCase();
+  if (candName.startsWith(lowerBrand)) {
+    nameScore = 100;
+  } else if (candName.includes(lowerBrand)) {
+    nameScore = 85;
+  } else {
+    let matches = 0;
+    meta.brandTokens.forEach(t => { if (candName.includes(t.toLowerCase())) matches++; });
+    nameScore = meta.brandTokens.length > 0 ? Math.round((matches / meta.brandTokens.length) * 80) : 30;
+  }
 
-  // 2. Pack Size Score
-  const packTokens = suppPack.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 0);
-  let packMatches = 0;
-  packTokens.forEach(t => { if (candPack.includes(t)) packMatches++; });
-  const packScore = packTokens.length > 0 ? Math.min(100, Math.round((packMatches / packTokens.length) * 100)) : 80;
+  let formBonus = 0;
+  if (meta.dosageForm) {
+    if (candName.includes(meta.dosageForm) || candPack.includes(meta.dosageForm)) {
+      formBonus = 15;
+    } else {
+      formBonus = -10;
+    }
+  }
 
-  // 3. Manufacturer Score
-  const mfgTokens = suppMfg.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 2 && !['pvt', 'ltd', 'limited', 'india'].includes(t));
-  let mfgMatches = 0;
-  mfgTokens.forEach(t => { if (candMfg.includes(t) || candName.includes(t)) mfgMatches++; });
-  const mfgScore = mfgTokens.length > 0 ? Math.min(100, Math.round((mfgMatches / mfgTokens.length) * 100)) : 70;
+  let packScore = 60;
+  if (meta.packVal) {
+    if (candPack.includes(meta.packVal)) {
+      packScore = 100;
+    } else {
+      packScore = 40;
+    }
+  }
 
-  // 4. Composition Score
-  const compTokens = suppComp.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 2);
-  let compMatches = 0;
-  compTokens.forEach(t => { if (candComp.includes(t) || candName.includes(t)) compMatches++; });
-  const compScore = compTokens.length > 0 ? Math.min(100, Math.round((compMatches / compTokens.length) * 100)) : 60;
+  let mfgScore = 50;
+  if (meta.rawMfg) {
+    const suppMfgTokens = meta.rawMfg.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 2 && !DOSAGE_STOP_WORDS.has(t));
+    let matches = 0;
+    suppMfgTokens.forEach(t => { if (candMfg.includes(t) || candName.includes(t)) matches++; });
+    mfgScore = suppMfgTokens.length > 0 ? Math.min(100, Math.round((matches / suppMfgTokens.length) * 100)) : 70;
+  }
 
-  let totalScore = Math.round((nameScore * 0.40) + (packScore * 0.20) + (mfgScore * 0.20) + (compScore * 0.20));
-  if (candName.includes(suppName) || candName.includes(suppMfg)) totalScore = Math.max(totalScore, 92);
+  let compScore = 50;
+  if (meta.rawComp) {
+    const suppCompTokens = meta.rawComp.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 2 && !DOSAGE_STOP_WORDS.has(t));
+    let matches = 0;
+    suppCompTokens.forEach(t => { if (candComp.includes(t) || candName.includes(t)) matches++; });
+    compScore = suppCompTokens.length > 0 ? Math.min(100, Math.round((matches / suppCompTokens.length) * 100)) : 60;
+  }
+
+  let totalScore = Math.round((nameScore * 0.40) + (packScore * 0.20) + (mfgScore * 0.20) + (compScore * 0.20) + formBonus);
+  totalScore = Math.max(10, Math.min(99, totalScore));
+
+  if (candName.startsWith(lowerBrand) && packScore >= 80) {
+    totalScore = Math.max(95, totalScore);
+  }
 
   return {
     totalScore,
@@ -117,61 +186,53 @@ function computeMetadataScores(item, cand) {
 
 // Multi-Factor AI Matching Algorithm evaluating ITEMNAME, COMPANYNAME, CONTENT vs Supabase June_Data
 async function findCandidatesForSupplierItem(item, rules = customMappingRules) {
-  const itemCode = item.ITEMCODE || item.item_code || item.code || '';
-  const itemName = item.ITEMNAME || item.item_name || item.name || '';
-  const content = item.CONTENT || item.composition || item.formula || '';
-  const packing = item.PACKING || item.packaging || '';
-  const companyName = item.COMPANYNAME || item.company_name || item.supplier_name || '';
-
-  const fullTextQuery = `${itemName} ${companyName} ${content}`;
-  const cleanTokens = fullTextQuery
-    .replace(/[^\w\s]/gi, ' ')
-    .split(/\s+/)
-    .filter(t => t.length > 2 && !['tab', 'tablet', 'cap', 'capsule', 'syrup', 'inj', 'strip', 'mg', 'ml', 'pvt', 'ltd', 'limited', 'india'].includes(t.toLowerCase()));
-
-  const searchKeywords = cleanTokens.slice(0, 4);
+  const meta = extractSupplierMetadata(item);
   let candidates = [];
 
-  for (const kw of searchKeywords) {
-    if (candidates.length >= 6) break;
-    const res = await querySupabase(`${MASTER_TABLE}?select=*&"Product Name"=ilike.*${encodeURIComponent(kw)}*&limit=10`);
+  if (meta.brandPrefix) {
+    const queryUrl = `${MASTER_TABLE}?select=*&Product%20Name=ilike.${encodeURIComponent(meta.brandPrefix)}*&limit=15`;
+    const res = await querySupabase(queryUrl);
     if (Array.isArray(res)) {
-      for (const r of res) {
-        if (!candidates.find(c => c['Product ID'] === r['Product ID'])) {
-          candidates.push(r);
-        }
+      candidates.push(...res);
+    }
+  }
+
+  if (candidates.length < 3 && meta.brandTokens.length > 1) {
+    const twoWordPrefix = `${meta.brandTokens[0]} ${meta.brandTokens[1]}`;
+    const queryUrl2 = `${MASTER_TABLE}?select=*&Product%20Name=ilike.${encodeURIComponent(twoWordPrefix)}*&limit=15`;
+    const res2 = await querySupabase(queryUrl2);
+    if (Array.isArray(res2)) {
+      for (const r of res2) {
+        if (!candidates.find(c => c['Product ID'] === r['Product ID'])) candidates.push(r);
       }
     }
   }
 
-  if (candidates.length < 5 && cleanTokens.length > 0) {
-    for (const kw of cleanTokens.slice(0, 2)) {
-      if (candidates.length >= 8) break;
-      const resComp = await querySupabase(`${MASTER_TABLE}?select=*&"Composition"=ilike.*${encodeURIComponent(kw)}*&limit=8`);
+  if (candidates.length === 0 && meta.rawComp) {
+    const compToken = meta.rawComp.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 3 && !DOSAGE_STOP_WORDS.has(t.toLowerCase()))[0];
+    if (compToken) {
+      const resComp = await querySupabase(`${MASTER_TABLE}?select=*&Composition=ilike.${encodeURIComponent(compToken)}*&limit=10`);
       if (Array.isArray(resComp)) {
-        for (const r of resComp) {
-          if (!candidates.find(c => c['Product ID'] === r['Product ID'])) {
-            candidates.push(r);
-          }
-        }
+        candidates.push(...resComp);
       }
     }
   }
 
-  if (candidates.length === 0 && cleanTokens.length > 0) {
-    const fallbackRes = await querySupabase(`${MASTER_TABLE}?select=*&"Product Name"=ilike.*${encodeURIComponent(cleanTokens[0].substring(0, 4))}*&limit=8`);
-    if (Array.isArray(fallbackRes)) {
-      candidates = fallbackRes;
+  if (candidates.length === 0 && meta.rawName) {
+    const firstWord = meta.rawName.split(/\s+/)[0];
+    const resFallback = await querySupabase(`${MASTER_TABLE}?select=*&Product%20Name=ilike.${encodeURIComponent(firstWord)}*&limit=10`);
+    if (Array.isArray(resFallback)) {
+      candidates = resFallback;
     }
   }
 
   const scoredCandidates = candidates.map(cand => {
-    const scores = computeMetadataScores(item, cand);
+    const scores = computeMetadataScores(meta, cand);
     return {
       master_product_id: cand['Product ID'],
       master_product_name: cand['Product Name'],
-      master_composition: cand['Composition'],
-      master_packaging: cand['Packaging Detail'],
+      master_composition: cand['Composition'] || 'N/A',
+      master_packaging: cand['Packaging Detail'] || 'N/A',
       master_manufacturer: cand['Manufacturer'] || cand['Marketer'] || 'Master Brand',
       confidence_score: scores.totalScore,
       metadata_scores: {
@@ -193,11 +254,11 @@ async function findCandidatesForSupplierItem(item, rules = customMappingRules) {
 
   return {
     id: item.id,
-    item_code: itemCode,
-    item_name: itemName,
-    packing: packing,
-    content: content,
-    company_name: companyName,
+    item_code: item.ITEMCODE || '',
+    item_name: meta.rawName,
+    packing: item.PACKING || '',
+    content: meta.rawComp,
+    company_name: meta.rawMfg,
     top_match: scoredCandidates[0] || null,
     candidates: scoredCandidates.slice(0, 3)
   };
