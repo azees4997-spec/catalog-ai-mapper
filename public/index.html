@@ -62,42 +62,42 @@
     <!-- Main Container -->
     <main class="main-container">
 
-      <!-- Metrics KPI Dashboard -->
+      <!-- Metrics KPI Dashboard: Mapped and verified, Neeed to Map, Mapped, Not Available -->
       <section class="kpi-grid">
         <div class="kpi-card">
           <div class="kpi-title">Total Supplier Items</div>
           <div class="kpi-value" id="kpi-total">0</div>
           <div class="kpi-subtitle">Loaded from Supplier Sheet</div>
         </div>
-        <div class="kpi-card success">
-          <div class="kpi-title">AI Matched (≥80% Score)</div>
-          <div class="kpi-value" id="kpi-matched">0</div>
-          <div class="kpi-subtitle">High Confidence AI Pairings</div>
-        </div>
         <div class="kpi-card verified">
-          <div class="kpi-title">Mapped & Verified</div>
+          <div class="kpi-title">Mapped and verified</div>
           <div class="kpi-value" id="kpi-approved">0</div>
-          <div class="kpi-subtitle">User Verified RXP Codes</div>
+          <div class="kpi-subtitle">Completed & Verified Mappings</div>
         </div>
-        <div class="kpi-card nearest">
-          <div class="kpi-title">Nearest Match Selected</div>
-          <div class="kpi-value" id="kpi-nearest">0</div>
-          <div class="kpi-subtitle">Hand-picked Nearest RXP</div>
+        <div class="kpi-card pending">
+          <div class="kpi-title">Neeed to Map</div>
+          <div class="kpi-value" id="kpi-pending">0</div>
+          <div class="kpi-subtitle">Items Awaiting Mapping</div>
+        </div>
+        <div class="kpi-card success">
+          <div class="kpi-title">Mapped</div>
+          <div class="kpi-value" id="kpi-mapped">0</div>
+          <div class="kpi-subtitle">AI & Auto-Mapped Items</div>
         </div>
         <div class="kpi-card not-avail">
-          <div class="kpi-title">Marked "Not Available"</div>
+          <div class="kpi-title">Not Available</div>
           <div class="kpi-value" id="kpi-not-avail">0</div>
-          <div class="kpi-subtitle">Not in Master Catalog</div>
+          <div class="kpi-subtitle">Item Not in Master Catalog</div>
         </div>
       </section>
 
-      <!-- Filter & Search Toolbar -->
+      <!-- Filter & Search Toolbar: Ordered Status Buckets -->
       <section class="toolbar">
         <div class="filter-tabs">
           <button class="tab-btn active" data-filter="ALL">All Items (<span id="tab-count-all">0</span>)</button>
-          <button class="tab-btn" data-filter="PENDING">Neeed to Map (<span id="tab-count-pending">0</span>)</button>
-          <button class="tab-btn" data-filter="AI_MATCHED">AI Matched (<span id="tab-count-ai">0</span>)</button>
-          <button class="tab-btn" data-filter="APPROVED">Mapped and verified (<span id="tab-count-approved">0</span>)</button>
+          <button class="tab-btn" data-filter="VERIFIED">Mapped and verified (<span id="tab-count-verified">0</span>)</button>
+          <button class="tab-btn" data-filter="NEED_MAP">Neeed to Map (<span id="tab-count-pending">0</span>)</button>
+          <button class="tab-btn" data-filter="MAPPED">Mapped (<span id="tab-count-mapped">0</span>)</button>
           <button class="tab-btn" data-filter="NOT_AVAILABLE">Not Available (<span id="tab-count-notavail">0</span>)</button>
         </div>
 
@@ -180,7 +180,7 @@
 
           <!-- Tab 4: Sample Data -->
           <div id="import-tab-sample" class="import-tab-content">
-            <p>Load your exact sample items (A RET GEL, OLESOFT MAX, HEXILAK, HYDE CREAM, PODOWART) to test AI matching:</p>
+            <p>Load sample pharmaceutical items (with Mapped and verified + Neeed to Map items):</p>
             <button class="btn btn-primary btn-block" id="btn-load-sample">Load Sample Catalog Data</button>
           </div>
 
