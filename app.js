@@ -125,6 +125,8 @@ function initEventListeners() {
   });
 
   // Export Actions
+  const btnBatchSync = document.getElementById('btn-batch-sync-sheet');
+  if (btnBatchSync) btnBatchSync.addEventListener('click', batchSyncAllToGoogleSheet);
   const btnCopySheet = document.getElementById('btn-copy-sheet-clipboard');
   if (btnCopySheet) btnCopySheet.addEventListener('click', copyToGoogleSheetClipboard);
   document.getElementById('btn-download-csv').addEventListener('click', downloadMappedCSV);
@@ -838,6 +840,34 @@ function updateExportSummary() {
       <p><strong>Marked as Not Available:</strong> ${notAvail.toLocaleString()}</p>
     </div>
   `;
+}
+
+// Batch Sync All Mapped Items directly to Live Google Sheet via Webhook
+async function batchSyncAllToGoogleSheet() {
+  if (!state.webhookUrl) {
+    alert('Please configure your Google Sheet Webhook URL first by clicking "⚡ Sheet Webhook Sync" in the top bar!');
+    openModal('webhook-modal');
+    return;
+  }
+
+  const mappedItems = state.items.filter(i => i.Status === 'Mapped and verified' || i.Status === 'Mapped' || i.Status === 'Not Available');
+  if (mappedItems.length === 0) {
+    alert('No mapped items to sync yet. Run AI Batch Match or map items first!');
+    return;
+  }
+
+  const confirmSync = confirm(`Sync ${mappedItems.length} mapped catalog items directly to your live Google Sheet Sheet3?`);
+  if (!confirmSync) return;
+
+  const BATCH_SIZE = 100;
+  let count = 0;
+  for (let i = 0; i < mappedItems.length; i += BATCH_SIZE) {
+    const chunk = mappedItems.slice(i, i + BATCH_SIZE);
+    sendWebhookUpdate(chunk);
+    count += chunk.length;
+  }
+
+  alert(`⚡ Live Webhook Sync active! Pushed ${count} mapped items directly to your Google Sheet Sheet3.`);
 }
 
 // Download Mapped CSV File matching exact 11 columns from user screenshot
