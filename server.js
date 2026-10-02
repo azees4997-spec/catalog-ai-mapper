@@ -38,17 +38,32 @@ function querySupabase(pathQuery) {
           resolve(JSON.parse(data));
         } catch (e) {
           resolve([]);
-// Helper to fetch URL following 301/302/307 redirects (for Google Sheets export)
-function fetchUrlWithRedirects(targetUrl, maxRedirects = 5) {
+        }
+      });
+    }).on('error', err => reject(err));
+  });
+}
+
+// Helper to fetch URL following 301/302/307 redirects & HTML body redirects (for Google Sheets export)
+function fetchUrlSmart(targetUrl, maxRedirects = 5) {
   return new Promise((resolve, reject) => {
     if (maxRedirects === 0) return reject(new Error('Too many HTTP redirects'));
     https.get(targetUrl, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return fetchUrlWithRedirects(res.headers.location, maxRedirects - 1).then(resolve).catch(reject);
+        return fetchUrlSmart(res.headers.location, maxRedirects - 1).then(resolve).catch(reject);
       }
       let data = '';
       res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve(data));
+      res.on('end', () => {
+        if (data.includes('Temporary Redirect') || data.includes('document has moved')) {
+          const match = data.match(/HREF="([^"]+)"/i) || data.match(/href="([^"]+)"/i);
+          if (match && match[1]) {
+            const redirectUrl = match[1].replace(/&amp;/g, '&');
+            return fetchUrlSmart(redirectUrl, maxRedirects - 1).then(resolve).catch(reject);
+          }
+        }
+        resolve(data);
+      });
     }).on('error', err => reject(err));
   });
 }
@@ -255,7 +270,7 @@ const server = http.createServer(async (req, res) => {
     const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
 
     try {
-      const csvData = await fetchUrlWithRedirects(exportUrl);
+      const csvData = await fetchUrlSmart(exportUrl);
       res.writeHead(200, { 'Content-Type': 'text/csv' });
       res.end(csvData);
     } catch (err) {
