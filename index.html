@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Supplier Catalog AI Mapper & Verification System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Top Header Navigation -->
+    <header class="navbar">
+      <div class="brand">
+        <div class="logo-icon">✨</div>
+        <div>
+          <h1>Catalog AI Mapper</h1>
+          <p class="subtitle">Google Sheets & Supabase Master Database Synchronizer</p>
+        </div>
+      </div>
+      
+      <div class="system-status">
+        <div class="status-pill connected" title="Connected to Supabase Project rhxrtsjocqizhxqhbzgu">
+          <span class="status-dot"></span>
+          <span>Supabase: <strong>June_Data</strong> (743,963 products)</span>
+        </div>
+        <div class="status-pill active" id="sheet-status-pill">
+          <span class="status-dot"></span>
+          <span id="sheet-name-text">Google Sheet: <strong>Sheet3</strong></span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn btn-secondary" id="btn-logic-modal">
+          <span class="icon">⚙️</span> Custom Logic Rules
+        </button>
+        <button class="btn btn-secondary" id="btn-import-modal">
+          <span class="icon">📂</span> Import Sheet / CSV
+        </button>
+        <button class="btn btn-secondary" id="btn-export-modal">
+          <span class="icon">📥</span> Export Mapped Data
+        </button>
+        <button class="btn btn-primary" id="btn-run-ai-match">
+          <span class="icon">⚡</span> Run AI Batch Match
+        </button>
+      </div>
+    </header>
+
+    <!-- Progress Notification Bar -->
+    <div id="progress-bar-container" class="progress-bar-container hidden">
+      <div class="progress-info">
+        <span id="progress-text">AI Matching in progress against Supabase June_Data (743k products)...</span>
+        <span id="progress-percent">0%</span>
+      </div>
+      <div class="progress-track">
+        <div id="progress-fill" class="progress-fill" style="width: 0%;"></div>
+      </div>
+    </div>
+
+    <!-- Main Container -->
+    <main class="main-container">
+
+      <!-- Metrics KPI Dashboard -->
+      <section class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-title">Total Supplier Items</div>
+          <div class="kpi-value" id="kpi-total">0</div>
+          <div class="kpi-subtitle">Loaded from Supplier Sheet</div>
+        </div>
+        <div class="kpi-card success">
+          <div class="kpi-title">AI Matched (≥80% Score)</div>
+          <div class="kpi-value" id="kpi-matched">0</div>
+          <div class="kpi-subtitle">High Confidence AI Pairings</div>
+        </div>
+        <div class="kpi-card verified">
+          <div class="kpi-title">User Confirmed / Approved</div>
+          <div class="kpi-value" id="kpi-approved">0</div>
+          <div class="kpi-subtitle">Manually Verified Mappings</div>
+        </div>
+        <div class="kpi-card nearest">
+          <div class="kpi-title">Nearest Match Selected</div>
+          <div class="kpi-value" id="kpi-nearest">0</div>
+          <div class="kpi-subtitle">Hand-picked Nearest SKU</div>
+        </div>
+        <div class="kpi-card not-avail">
+          <div class="kpi-title">Marked "Not Available"</div>
+          <div class="kpi-value" id="kpi-not-avail">0</div>
+          <div class="kpi-subtitle">Not in Master Catalog</div>
+        </div>
+      </section>
+
+      <!-- Filter & Search Toolbar -->
+      <section class="toolbar">
+        <div class="filter-tabs">
+          <button class="tab-btn active" data-filter="ALL">All Items (<span id="tab-count-all">0</span>)</button>
+          <button class="tab-btn" data-filter="PENDING">Pending Review (<span id="tab-count-pending">0</span>)</button>
+          <button class="tab-btn" data-filter="AI_MATCHED">AI Matched (<span id="tab-count-ai">0</span>)</button>
+          <button class="tab-btn" data-filter="APPROVED">Approved (<span id="tab-count-approved">0</span>)</button>
+          <button class="tab-btn" data-filter="NOT_AVAILABLE">Not Available (<span id="tab-count-notavail">0</span>)</button>
+        </div>
+
+        <div class="search-box-wrapper">
+          <input type="text" id="search-input" class="search-input" placeholder="Filter by supplier item name, code, composition...">
+        </div>
+      </section>
+
+      <!-- Interactive Catalog Mapping Table -->
+      <section class="table-card">
+        <div class="table-container">
+          <table class="mapping-table">
+            <thead>
+              <tr>
+                <th width="4%">#</th>
+                <th width="12%">Supplier Code & Name</th>
+                <th width="24%">Supplier Catalogue Item</th>
+                <th width="28%">AI Recommended Master Product (Supabase June_Data)</th>
+                <th width="10%">Match Score</th>
+                <th width="10%">Status</th>
+                <th width="12%">Verification & Action</th>
+              </tr>
+            </thead>
+            <tbody id="mapping-table-body">
+              <!-- Rendered via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Modal 1: Import Modal -->
+    <div id="import-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Import Supplier Catalog</h3>
+          <button class="close-btn" id="close-import-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="import-options-tabs">
+            <button class="import-tab-btn active" data-import-tab="paste">📋 Paste Google Sheet Data</button>
+            <button class="import-tab-btn" data-import-tab="sheet">🔗 Google Sheet Link</button>
+            <button class="import-tab-btn" data-import-tab="csv">📄 Upload CSV</button>
+            <button class="import-tab-btn" data-import-tab="sample">⚡ Sample Data</button>
+          </div>
+
+          <!-- Tab 1: Paste Google Sheet Data -->
+          <div id="import-tab-paste" class="import-tab-content active">
+            <p style="margin-bottom: 10px; font-size: 0.88rem;">Copy rows directly from your Google Sheet (<strong>Sheet3</strong>) and paste them below:</p>
+            <textarea id="paste-sheet-input" class="form-input" style="height: 160px; font-family: monospace; font-size: 0.8rem;" placeholder="ITEMCODE&#9;ITEMNAME&#9;PACKING&#9;CONTENT&#9;COMPANYNAME&#9;SALERATE&#9;MRP"></textarea>
+            <button class="btn btn-primary btn-block" style="margin-top: 14px;" id="btn-parse-pasted-sheet">Parse & Load Google Sheet Data</button>
+          </div>
+
+          <!-- Tab 2: Google Sheet Link -->
+          <div id="import-tab-sheet" class="import-tab-content">
+            <div class="form-group">
+              <label>Google Sheet URL:</label>
+              <input type="text" id="sheet-url-input" class="form-input" value="https://docs.google.com/spreadsheets/d/1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8/edit?pli=1&gid=1777883675#gid=1777883675">
+            </div>
+            <div class="form-group">
+              <label>Sheet Tab Name:</label>
+              <input type="text" id="sheet-name-input" class="form-input" value="Sheet3">
+            </div>
+            <button class="btn btn-primary btn-block" id="btn-load-sheet">Fetch Direct Google Sheet CSV</button>
+          </div>
+
+          <!-- Tab 3: Upload CSV File -->
+          <div id="import-tab-csv" class="import-tab-content">
+            <div class="drop-zone" id="drop-zone">
+              <div class="drop-icon">📁</div>
+              <p>Drag and drop your exported <strong>Sheet3 CSV file</strong> here</p>
+              <p class="drop-or">or</p>
+              <input type="file" id="csv-file-input" accept=".csv" class="hidden">
+              <button class="btn btn-secondary" onclick="document.getElementById('csv-file-input').click()">Browse CSV File</button>
+            </div>
+          </div>
+
+          <!-- Tab 4: Sample Data -->
+          <div id="import-tab-sample" class="import-tab-content">
+            <p>Load sample pharmaceutical items to test auto-matching against your 743,963 Supabase products:</p>
+            <button class="btn btn-primary btn-block" id="btn-load-sample">Load Sample Catalog Data</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 2: Custom Mapping Logic Configurator -->
+    <div id="logic-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Custom Mapping Logic & Weightings</h3>
+          <button class="close-btn" id="close-logic-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 16px;">
+            Configure matching weights and rules to fine-tune how AI matches supplier items with Supabase <strong>June_Data</strong>:
+          </p>
+
+          <div class="form-group">
+            <label>Product Name Match Weight (0.0 to 1.0):</label>
+            <input type="number" step="0.05" min="0" max="1" id="rule-weight-name" class="form-input" value="0.45">
+          </div>
+
+          <div class="form-group">
+            <label>Composition / Content Match Weight (0.0 to 1.0):</label>
+            <input type="number" step="0.05" min="0" max="1" id="rule-weight-comp" class="form-input" value="0.40">
+          </div>
+
+          <div class="form-group">
+            <label>Dosage / Strength Match Weight (0.0 to 1.0):</label>
+            <input type="number" step="0.05" min="0" max="1" id="rule-weight-strength" class="form-input" value="0.15">
+          </div>
+
+          <div class="form-group">
+            <label>Minimum Auto-Match Confidence Threshold (%):</label>
+            <input type="number" min="50" max="100" id="rule-min-threshold" class="form-input" value="75">
+          </div>
+
+          <button class="btn btn-primary btn-block" id="btn-save-logic-rules">Save Mapping Logic Rules</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 3: Candidate Selection / Nearest Match Drawer -->
+    <div id="candidate-modal" class="modal-overlay hidden">
+      <div class="modal-card wide">
+        <div class="modal-header">
+          <div>
+            <h3>Select Nearest Master Product</h3>
+            <p class="modal-subtitle" id="candidate-supplier-item-title">Supplier Item: ...</p>
+          </div>
+          <button class="close-btn" id="close-candidate-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="section-lead">Top AI candidate matches retrieved from Supabase <strong>June_Data</strong> (743,963 records):</p>
+          <div id="candidate-list" class="candidate-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 4: Manual Master Search Modal -->
+    <div id="search-modal" class="modal-overlay hidden">
+      <div class="modal-card wide">
+        <div class="modal-header">
+          <div>
+            <h3>Search Supabase Master Catalog (743,963 Products)</h3>
+            <p class="modal-subtitle" id="search-supplier-item-title">Mapping for: ...</p>
+          </div>
+          <button class="close-btn" id="close-search-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="search-input-group">
+            <input type="text" id="master-search-query" class="form-input large" placeholder="Type drug name, composition, strength, or Product ID...">
+            <button class="btn btn-primary" id="btn-execute-master-search">Search Supabase</button>
+          </div>
+          <div id="master-search-results" class="search-results-list">
+            <p class="empty-state">Type a query above to search live across 743,963 master database records.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 5: Export Modal -->
+    <div id="export-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Export Mapped Catalogue Data</h3>
+          <button class="close-btn" id="close-export-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>Export your mapped catalog containing supplier item codes, verified master Product IDs, confidence scores, and status flags.</p>
+          <div class="export-summary-box" id="export-summary-box"></div>
+          <div class="export-actions">
+            <button class="btn btn-primary btn-block" id="btn-download-csv">📥 Download Mapped CSV Spreadsheet</button>
+            <button class="btn btn-secondary btn-block" id="btn-sync-supabase">☁️ Sync Mappings to Supabase Table</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
