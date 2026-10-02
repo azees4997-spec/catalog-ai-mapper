@@ -49,15 +49,17 @@ const StorageManager = {
     if (webhookUrl !== undefined) {
       localStorage.setItem('catalog_webhook_url', webhookUrl);
     }
-    try {
-      const db = await this.openDB();
-      const tx = db.transaction(this.storeName, 'readwrite');
-      const store = tx.objectStore(this.storeName);
-      store.put(items, 'saved_items');
-    } catch (e) {
+    if (items && Array.isArray(items) && items.length > 0) {
       try {
-        localStorage.setItem('catalog_saved_items', JSON.stringify(items));
-      } catch (err) {}
+        const db = await this.openDB();
+        const tx = db.transaction(this.storeName, 'readwrite');
+        const store = tx.objectStore(this.storeName);
+        store.put(items, 'saved_items');
+      } catch (e) {
+        try {
+          localStorage.setItem('catalog_saved_items', JSON.stringify(items));
+        } catch (err) {}
+      }
     }
   },
 
@@ -68,13 +70,19 @@ const StorageManager = {
         const tx = db.transaction(this.storeName, 'readonly');
         const store = tx.objectStore(this.storeName);
         const req = store.get('saved_items');
-        req.onsuccess = () => resolve(req.result || null);
+        req.onsuccess = () => {
+          const res = req.result;
+          if (Array.isArray(res) && res.length > 0) resolve(res);
+          else resolve(null);
+        };
         req.onerror = () => resolve(null);
       });
     } catch (e) {
       try {
         const raw = localStorage.getItem('catalog_saved_items');
-        return raw ? JSON.parse(raw) : null;
+        const parsed = raw ? JSON.parse(raw) : null;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        return null;
       } catch (err) {
         return null;
       }
