@@ -11,20 +11,34 @@
   <script>
     function openModal(id) {
       var el = document.getElementById(id);
-      if (el) el.classList.remove('hidden');
+      if (el) {
+        document.body.appendChild(el);
+        el.classList.remove('hidden');
+        el.style.display = 'flex';
+        el.style.zIndex = '999999';
+      }
     }
     function closeModal(id) {
       var el = document.getElementById(id);
-      if (el) el.classList.add('hidden');
+      if (el) {
+        el.classList.add('hidden');
+        el.style.display = 'none';
+      }
     }
     function openWebhookModal() {
+      var modal = document.getElementById('webhook-modal');
+      if (modal) {
+        document.body.appendChild(modal);
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+        modal.style.zIndex = '999999';
+      }
       var input = document.getElementById('webhook-url-input');
       if (input && window.state && window.state.webhookUrl) {
         input.value = window.state.webhookUrl;
       } else if (input && localStorage.getItem('catalog_webhook_url')) {
         input.value = localStorage.getItem('catalog_webhook_url');
       }
-      openModal('webhook-modal');
     }
     function saveWebhookUrl() {
       var input = document.getElementById('webhook-url-input');

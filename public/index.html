@@ -8,6 +8,61 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    function openModal(id) {
+      var el = document.getElementById(id);
+      if (el) {
+        document.body.appendChild(el);
+        el.classList.remove('hidden');
+        el.style.display = 'flex';
+        el.style.zIndex = '999999';
+      }
+    }
+    function closeModal(id) {
+      var el = document.getElementById(id);
+      if (el) {
+        el.classList.add('hidden');
+        el.style.display = 'none';
+      }
+    }
+    function openWebhookModal() {
+      var modal = document.getElementById('webhook-modal');
+      if (modal) {
+        document.body.appendChild(modal);
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+        modal.style.zIndex = '999999';
+      }
+      var input = document.getElementById('webhook-url-input');
+      if (input && window.state && window.state.webhookUrl) {
+        input.value = window.state.webhookUrl;
+      } else if (input && localStorage.getItem('catalog_webhook_url')) {
+        input.value = localStorage.getItem('catalog_webhook_url');
+      }
+    }
+    function saveWebhookUrl() {
+      var input = document.getElementById('webhook-url-input');
+      if (!input) return;
+      var url = input.value.trim();
+      if (window.state) window.state.webhookUrl = url;
+      localStorage.setItem('catalog_webhook_url', url);
+      closeModal('webhook-modal');
+      alert('⚡ Google Sheet Webhook Sync enabled!\n\nYour UI clicks will now update Google Sheet Sheet3 in real-time.');
+    }
+    function copyAppsScriptCode() {
+      var code = document.getElementById('apps-script-code').value;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(function() {
+          alert('📋 Google Apps Script code copied to clipboard!\n\nPaste it inside Google Sheets -> Extensions -> Apps Script.');
+        });
+      } else {
+        var textarea = document.getElementById('apps-script-code');
+        textarea.select();
+        document.execCommand('copy');
+        alert('📋 Google Apps Script code copied to clipboard!');
+      }
+    }
+  </script>
 </head>
 <body>
   <div id="app">
@@ -267,6 +322,9 @@
             <button class="btn btn-secondary btn-block" id="btn-sync-supabase">☁️ Sync Mappings to Supabase Table</button>
           </div>
         </div>
+      </div>
+    </div>
+
     <!-- Modal 6: Google Apps Script Webhook Live Sync Modal -->
     <div id="webhook-modal" class="modal-overlay hidden">
       <div class="modal-card wide">
@@ -338,6 +396,6 @@ function doPost(e) {
 
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>

@@ -308,7 +308,12 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Static File Serving
-  let filePath = path.join(__dirname, 'public', pathname === '/' ? 'index.html' : pathname);
+  const relPath = pathname === '/' ? 'index.html' : pathname.replace(/^\//, '');
+  let filePath = path.join(__dirname, relPath);
+  if (!fs.existsSync(filePath)) {
+    filePath = path.join(__dirname, 'public', relPath);
+  }
+
   const extname = path.extname(filePath);
   let contentType = 'text/html';
 
@@ -323,7 +328,10 @@ const server = http.createServer(async (req, res) => {
   fs.readFile(filePath, (err, content) => {
     if (err) {
       if (err.code === 'ENOENT') {
-        fs.readFile(path.join(__dirname, 'public', 'index.html'), (err2, content2) => {
+        const rootIndex = path.join(__dirname, 'index.html');
+        const pubIndex = path.join(__dirname, 'public', 'index.html');
+        const fallback = fs.existsSync(rootIndex) ? rootIndex : pubIndex;
+        fs.readFile(fallback, (err2, content2) => {
           res.writeHead(200, { 'Content-Type': 'text/html' });
           res.end(content2);
         });
@@ -332,7 +340,7 @@ const server = http.createServer(async (req, res) => {
         res.end(`Server Error: ${err.code}`);
       }
     } else {
-      res.writeHead(200, { 'Content-Type': contentType });
+      res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'no-cache, no-store, must-revalidate' });
       res.end(content, 'utf-8');
     }
   });

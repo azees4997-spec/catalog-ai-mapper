@@ -134,8 +134,8 @@ function initEventListeners() {
 }
 
 // Modal Helpers
-function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
-function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+window.openModal = function(id) { document.getElementById(id).classList.remove('hidden'); };
+window.closeModal = function(id) { document.getElementById(id).classList.add('hidden'); };
 
 // Load Sample Supplier Catalog
 function loadSampleData() {
