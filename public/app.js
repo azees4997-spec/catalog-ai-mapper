@@ -529,21 +529,27 @@ function sendWebhookUpdate(items) {
   } catch (e) {}
 }
 
-function saveWebhookUrl() {
+window.openWebhookModal = function() {
+  const input = document.getElementById('webhook-url-input');
+  if (input) input.value = state.webhookUrl || '';
+  openModal('webhook-modal');
+};
+
+window.saveWebhookUrl = function() {
   const input = document.getElementById('webhook-url-input');
   if (!input) return;
   state.webhookUrl = input.value.trim();
   localStorage.setItem('catalog_webhook_url', state.webhookUrl);
   closeModal('webhook-modal');
   alert(`⚡ Google Sheet Webhook Sync enabled!\n\nYour UI clicks will now update Google Sheet Sheet3 in real-time.`);
-}
+};
 
-function copyAppsScriptCode() {
+window.copyAppsScriptCode = function() {
   const code = document.getElementById('apps-script-code').value;
   navigator.clipboard.writeText(code).then(() => {
     alert('📋 Google Apps Script code copied to clipboard!\n\nPaste it inside Google Sheets -> Extensions -> Apps Script.');
   });
-}
+};
 
 // Confirm & Map Action: Fills RXP Code, RXP Name, RXP Pack Size and sets Status = 'Mapped and verified'
 window.confirmMatch = function(itemId) {

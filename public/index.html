@@ -33,7 +33,7 @@
       </div>
 
       <div class="header-actions">
-        <button class="btn btn-secondary" id="btn-webhook-modal" style="background: rgba(99, 102, 241, 0.15); border-color: var(--primary); color: #a5b4fc;">
+        <button class="btn btn-secondary" id="btn-webhook-modal" onclick="openWebhookModal()" style="background: rgba(99, 102, 241, 0.15); border-color: var(--primary); color: #a5b4fc; font-weight: 700;">
           <span class="icon">⚡</span> Sheet Webhook Sync
         </button>
         <button class="btn btn-secondary" id="btn-logic-modal">
@@ -275,7 +275,7 @@
             <h3>⚡ Live Google Sheet Webhook Sync (Option B)</h3>
             <p class="modal-subtitle">Automatically update Google Sheet Sheet3 columns in real-time on every UI click!</p>
           </div>
-          <button class="close-btn" id="close-webhook-modal">&times;</button>
+          <button class="close-btn" id="close-webhook-modal" onclick="closeModal('webhook-modal')">&times;</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
@@ -328,10 +328,10 @@ function doPost(e) {
   }
 }
             </textarea>
-            <button class="btn btn-secondary btn-sm" id="btn-copy-script-code" style="margin-top: 8px;">📋 Copy Apps Script Code to Clipboard</button>
+            <button class="btn btn-secondary btn-sm" id="btn-copy-script-code" onclick="copyAppsScriptCode()" style="margin-top: 8px;">📋 Copy Apps Script Code to Clipboard</button>
           </div>
 
-          <button class="btn btn-primary btn-block" style="margin-top: 16px;" id="btn-save-webhook-url">Save Webhook & Enable Real-Time Sync</button>
+          <button class="btn btn-primary btn-block" style="margin-top: 16px;" id="btn-save-webhook-url" onclick="saveWebhookUrl()">Save Webhook & Enable Real-Time Sync</button>
         </div>
       </div>
     </div>
