@@ -296,7 +296,8 @@
             <textarea id="apps-script-code" class="form-input" style="height: 150px; font-family: monospace; font-size: 0.78rem;" readonly>
 function doPost(e) {
   try {
-    var data = JSON.parse(e.postData.contents);
+    var rawText = (e && e.postData && e.postData.contents) ? e.postData.contents : "[]";
+    var data = JSON.parse(rawText);
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sheet3") || SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
     var lastRow = sheet.getLastRow();
     if (lastRow < 2) return ContentService.createTextOutput(JSON.stringify({ status: "error", message: "No data rows" })).setMimeType(ContentService.MimeType.JSON);
@@ -306,13 +307,15 @@ function doPost(e) {
     var count = 0;
 
     updates.forEach(function(item) {
+      if (!item || !item.ITEMCODE) return;
+      var targetCode = String(item.ITEMCODE).trim();
       for (var i = 0; i < itemCodes.length; i++) {
-        if (String(itemCodes[i][0]).trim() === String(item.ITEMCODE).trim()) {
+        if (String(itemCodes[i][0]).trim() === targetCode) {
           var rowNum = i + 2;
-          sheet.getRange(rowNum, 8).setValue(item['RXP Code'] || '');
-          sheet.getRange(rowNum, 9).setValue(item['RXP Name'] || '');
-          sheet.getRange(rowNum, 10).setValue(item['RXP Pack Size'] || '');
-          sheet.getRange(rowNum, 11).setValue(item.Status || 'Mapped and verified');
+          if (item['RXP Code'] !== undefined) sheet.getRange(rowNum, 8).setValue(item['RXP Code'] || '');
+          if (item['RXP Name'] !== undefined) sheet.getRange(rowNum, 9).setValue(item['RXP Name'] || '');
+          if (item['RXP Pack Size'] !== undefined) sheet.getRange(rowNum, 10).setValue(item['RXP Pack Size'] || '');
+          if (item.Status !== undefined) sheet.getRange(rowNum, 11).setValue(item.Status || 'Mapped and verified');
           count++;
           break;
         }
