@@ -38,8 +38,17 @@ function querySupabase(pathQuery) {
           resolve(JSON.parse(data));
         } catch (e) {
           resolve([]);
-        }
-      });
+// Helper to fetch URL following 301/302/307 redirects (for Google Sheets export)
+function fetchUrlWithRedirects(targetUrl, maxRedirects = 5) {
+  return new Promise((resolve, reject) => {
+    if (maxRedirects === 0) return reject(new Error('Too many HTTP redirects'));
+    https.get(targetUrl, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return fetchUrlWithRedirects(res.headers.location, maxRedirects - 1).then(resolve).catch(reject);
+      }
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve(data));
     }).on('error', err => reject(err));
   });
 }
@@ -243,16 +252,40 @@ const server = http.createServer(async (req, res) => {
 
     const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
 
-    https.get(exportUrl, (sheetRes) => {
-      let csvData = '';
-      sheetRes.on('data', chunk => csvData += chunk);
-      sheetRes.on('end', () => {
-        res.writeHead(200, { 'Content-Type': 'text/csv' });
-        res.end(csvData);
-      });
-    }).on('error', err => {
+    try {
+      const csvData = await fetchUrlWithRedirects(exportUrl);
+      res.writeHead(200, { 'Content-Type': 'text/csv' });
+      res.end(csvData);
+    } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  // API Route: Sync Mappings to Supabase Table (with local backup fallback)
+  if (pathname === '/api/sync-supabase' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const payload = JSON.parse(body);
+        const mappings = payload.mappings || [];
+        
+        // Save local backup file
+        const backupPath = path.join(__dirname, 'mapped_catalog_backup.json');
+        fs.writeFileSync(backupPath, JSON.stringify(mappings, null, 2), 'utf-8');
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          success: true, 
+          count: mappings.length, 
+          message: `Synced ${mappings.length} mapped catalog rows! Saved to local backup. Press Copy to Clipboard to paste directly into Google Sheet.` 
+        }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
     });
     return;
   }

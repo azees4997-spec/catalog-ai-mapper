@@ -1,6 +1,20 @@
 const https = require('https');
 const url = require('url');
 
+function fetchUrlWithRedirects(targetUrl, maxRedirects = 5) {
+  return new Promise((resolve, reject) => {
+    if (maxRedirects === 0) return reject(new Error('Too many HTTP redirects'));
+    https.get(targetUrl, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return fetchUrlWithRedirects(res.headers.location, maxRedirects - 1).then(resolve).catch(reject);
+      }
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve(data));
+    }).on('error', err => reject(err));
+  });
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -24,13 +38,11 @@ module.exports = async (req, res) => {
 
   const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
 
-  https.get(exportUrl, (sheetRes) => {
-    let csvData = '';
-    sheetRes.on('data', chunk => csvData += chunk);
-    sheetRes.on('end', () => {
-      res.status(200).send(csvData);
-    });
-  }).on('error', err => {
+  try {
+    const csvData = await fetchUrlWithRedirects(exportUrl);
+    res.setHeader('Content-Type', 'text/csv');
+    res.status(200).send(csvData);
+  } catch (err) {
     res.status(500).json({ error: err.message });
-  });
+  }
 };

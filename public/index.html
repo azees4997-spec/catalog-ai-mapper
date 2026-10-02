@@ -33,6 +33,9 @@
       </div>
 
       <div class="header-actions">
+        <button class="btn btn-secondary" id="btn-webhook-modal" style="background: rgba(99, 102, 241, 0.15); border-color: var(--primary); color: #a5b4fc;">
+          <span class="icon">⚡</span> Sheet Webhook Sync
+        </button>
         <button class="btn btn-secondary" id="btn-logic-modal">
           <span class="icon">⚙️</span> Custom Logic Rules
         </button>
@@ -275,9 +278,73 @@
           <p>Export your mapped catalog containing exact columns: ITEMCODE, ITEMNAME, PACKING, CONTENT, COMPANYNAME, SALERATE, MRP, RXP Code, RXP Name, RXP Pack Size, Status.</p>
           <div class="export-summary-box" id="export-summary-box"></div>
           <div class="export-actions">
-            <button class="btn btn-primary btn-block" id="btn-download-csv">📥 Download Mapped CSV Spreadsheet</button>
+            <button class="btn btn-primary btn-block" id="btn-copy-sheet-clipboard" style="margin-bottom: 10px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); font-weight: 700;">📋 Copy 11-Column Google Sheet Data to Clipboard</button>
+            <button class="btn btn-secondary btn-block" id="btn-download-csv" style="margin-bottom: 10px;">📥 Download Mapped CSV Spreadsheet</button>
             <button class="btn btn-secondary btn-block" id="btn-sync-supabase">☁️ Sync Mappings to Supabase Table</button>
           </div>
+        </div>
+    <!-- Modal 6: Google Apps Script Webhook Live Sync Modal -->
+    <div id="webhook-modal" class="modal-overlay hidden">
+      <div class="modal-card wide">
+        <div class="modal-header">
+          <div>
+            <h3>⚡ Live Google Sheet Webhook Sync (Option B)</h3>
+            <p class="modal-subtitle">Automatically update Google Sheet Sheet3 columns in real-time on every UI click!</p>
+          </div>
+          <button class="close-btn" id="close-webhook-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label><strong>Google Apps Script Webhook URL:</strong></label>
+            <input type="text" id="webhook-url-input" class="form-input large" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
+            <p class="form-help" style="font-size: 0.82rem; color: var(--text-muted); margin-top: 4px;">
+              When set, clicking <strong>Confirm & Map</strong>, <strong>Select Nearest</strong>, or <strong>Run AI Match</strong> will automatically update Google Sheet <strong>Sheet3</strong> live!
+            </p>
+          </div>
+
+          <div style="margin-top: 16px; background: var(--bg-elevated); padding: 16px; border-radius: 8px; border: 1px solid var(--border-color);">
+            <h4 style="margin-bottom: 8px; color: #a5b4fc;">📋 Google Apps Script Code (Copy into Google Sheets):</h4>
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px;">
+              1. Open Google Sheet <strong>Sheet3</strong> &rarr; Click <strong>Extensions</strong> &rarr; <strong>Apps Script</strong><br>
+              2. Replace all code with the snippet below and click <strong>Save</strong><br>
+              3. Click <strong>Deploy</strong> &rarr; <strong>New deployment</strong> &rarr; Select <strong>Web app</strong> &rarr; Execute as: <strong>Me</strong> &rarr; Who has access: <strong>Anyone</strong> &rarr; Deploy & Copy Webhook URL.
+            </p>
+            <textarea id="apps-script-code" class="form-input" style="height: 150px; font-family: monospace; font-size: 0.78rem;" readonly>
+function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sheet3") || SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return ContentService.createTextOutput(JSON.stringify({ status: "error", message: "No data rows" })).setMimeType(ContentService.MimeType.JSON);
+    
+    var itemCodes = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    var updates = Array.isArray(data) ? data : [data];
+    var count = 0;
+
+    updates.forEach(function(item) {
+      for (var i = 0; i < itemCodes.length; i++) {
+        if (String(itemCodes[i][0]).trim() === String(item.ITEMCODE).trim()) {
+          var rowNum = i + 2;
+          sheet.getRange(rowNum, 8).setValue(item['RXP Code'] || '');
+          sheet.getRange(rowNum, 9).setValue(item['RXP Name'] || '');
+          sheet.getRange(rowNum, 10).setValue(item['RXP Pack Size'] || '');
+          sheet.getRange(rowNum, 11).setValue(item.Status || 'Mapped and verified');
+          count++;
+          break;
+        }
+      }
+    });
+
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", updatedCount: count })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+            </textarea>
+            <button class="btn btn-secondary btn-sm" id="btn-copy-script-code" style="margin-top: 8px;">📋 Copy Apps Script Code to Clipboard</button>
+          </div>
+
+          <button class="btn btn-primary btn-block" style="margin-top: 16px;" id="btn-save-webhook-url">Save Webhook & Enable Real-Time Sync</button>
         </div>
       </div>
     </div>

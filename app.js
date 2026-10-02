@@ -8,6 +8,7 @@ let state = {
   selectedItemForCandidateModal: null,
   selectedItemForSearchModal: null,
   isMatchingActive: false,
+  webhookUrl: localStorage.getItem('catalog_webhook_url') || '',
   mappingRules: {
     weights: { name: 0.45, content: 0.40, strength: 0.15 },
     minConfidenceThreshold: 75
@@ -37,6 +38,21 @@ function initEventListeners() {
   
   document.getElementById('btn-logic-modal').addEventListener('click', () => openModal('logic-modal'));
   document.getElementById('close-logic-modal').addEventListener('click', () => closeModal('logic-modal'));
+
+  const btnWebhook = document.getElementById('btn-webhook-modal');
+  if (btnWebhook) btnWebhook.addEventListener('click', () => {
+    const input = document.getElementById('webhook-url-input');
+    if (input) input.value = state.webhookUrl;
+    openModal('webhook-modal');
+  });
+  const closeWebhook = document.getElementById('close-webhook-modal');
+  if (closeWebhook) closeWebhook.addEventListener('click', () => closeModal('webhook-modal'));
+
+  const btnSaveWebhook = document.getElementById('btn-save-webhook-url');
+  if (btnSaveWebhook) btnSaveWebhook.addEventListener('click', saveWebhookUrl);
+
+  const btnCopyScript = document.getElementById('btn-copy-script-code');
+  if (btnCopyScript) btnCopyScript.addEventListener('click', copyAppsScriptCode);
 
   document.getElementById('btn-export-modal').addEventListener('click', () => {
     updateExportSummary();
@@ -109,6 +125,8 @@ function initEventListeners() {
   });
 
   // Export Actions
+  const btnCopySheet = document.getElementById('btn-copy-sheet-clipboard');
+  if (btnCopySheet) btnCopySheet.addEventListener('click', copyToGoogleSheetClipboard);
   document.getElementById('btn-download-csv').addEventListener('click', downloadMappedCSV);
   document.getElementById('btn-sync-supabase').addEventListener('click', syncToSupabase);
 }
@@ -398,6 +416,44 @@ function renderTable() {
   }
 }
 
+// Background Real-Time Google Sheet Webhook Sync (Option B)
+function sendWebhookUpdate(items) {
+  if (!state.webhookUrl) return;
+  const itemArray = Array.isArray(items) ? items : [items];
+  const payload = itemArray.map(item => ({
+    ITEMCODE: item.ITEMCODE,
+    'RXP Code': item.Status === 'Not Available' ? '' : (item['RXP Code'] || ''),
+    'RXP Name': item.Status === 'Not Available' ? '' : (item['RXP Name'] || ''),
+    'RXP Pack Size': item.Status === 'Not Available' ? '' : (item['RXP Pack Size'] || ''),
+    Status: item.Status || 'Mapped and verified'
+  }));
+
+  try {
+    fetch(state.webhookUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).catch(err => console.error('Webhook error:', err));
+  } catch (e) {}
+}
+
+function saveWebhookUrl() {
+  const input = document.getElementById('webhook-url-input');
+  if (!input) return;
+  state.webhookUrl = input.value.trim();
+  localStorage.setItem('catalog_webhook_url', state.webhookUrl);
+  closeModal('webhook-modal');
+  alert(`⚡ Google Sheet Webhook Sync enabled!\n\nYour UI clicks will now update Google Sheet Sheet3 in real-time.`);
+}
+
+function copyAppsScriptCode() {
+  const code = document.getElementById('apps-script-code').value;
+  navigator.clipboard.writeText(code).then(() => {
+    alert('📋 Google Apps Script code copied to clipboard!\n\nPaste it inside Google Sheets -> Extensions -> Apps Script.');
+  });
+}
+
 // Confirm & Map Action: Fills RXP Code, RXP Name, RXP Pack Size and sets Status = 'Mapped and verified'
 window.confirmMatch = function(itemId) {
   const item = state.items.find(i => i.id === itemId);
@@ -413,6 +469,7 @@ window.confirmMatch = function(itemId) {
       item['RXP Pack Size'] = match.master_packaging;
     }
     item.Status = 'Mapped and verified';
+    sendWebhookUpdate(item);
     updateKPICounters();
     renderTable();
   }
@@ -427,6 +484,7 @@ window.markNotAvailable = function(itemId) {
     item['RXP Pack Size'] = '';
     item.Status = 'Not Available';
     item.user_assigned_match = null;
+    sendWebhookUpdate(item);
     updateKPICounters();
     renderTable();
   }
@@ -479,6 +537,7 @@ window.selectCandidateMatch = function(masterProductId) {
     item['RXP Name'] = candidate.master_product_name;
     item['RXP Pack Size'] = candidate.master_packaging;
     item.Status = 'Mapped and verified';
+    sendWebhookUpdate(item);
     closeModal('candidate-modal');
     updateKPICounters();
     renderTable();
@@ -556,6 +615,7 @@ window.assignCustomMasterMatch = function(id, name, composition, packaging) {
   item['RXP Name'] = name;
   item['RXP Pack Size'] = packaging;
   item.Status = 'Mapped and verified';
+  sendWebhookUpdate(item);
 
   closeModal('search-modal');
   updateKPICounters();
