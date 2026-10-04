@@ -1738,3 +1738,4 @@ function escapeHtml(str) {
   return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }
 
+
