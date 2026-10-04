@@ -1343,8 +1343,16 @@ function parseCSVText(csvText, silent = false) {
 
     const rxpCode = cols[7] || '';
     const rxpName = cols[8] || '';
-    const rxpPack = cols[9] || '';
-    const rawStatus = cols[10] || '';
+    let rxpPack = cols[9] || '';
+    let rawStatus = cols[10] || cols[9] || '';
+
+    if (cols[9]) {
+      const c9Lower = cols[9].toLowerCase();
+      if (c9Lower.includes('map') || c9Lower.includes('validate') || c9Lower.includes('verified') || c9Lower.includes('avail') || c9Lower.includes('pending') || c9Lower.includes('neeed')) {
+        rawStatus = cols[9];
+        rxpPack = '';
+      }
+    }
 
     const sLower = rawStatus.toLowerCase();
     let status = 'Neeed to Map';
