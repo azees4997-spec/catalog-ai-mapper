@@ -227,8 +227,8 @@
 
       <!-- Metrics KPI Dashboard: Total Supplier Items, AI Mapped, Need to Validate, Mapped and verified, Not Available -->
       <section class="kpi-grid">
-        <div class="kpi-card" style="cursor: pointer;" onclick="selectFilterTab('NEED_MAP')" title="Click to view Total Supplier Items">
-          <div class="kpi-title">Total Supplier Items</div>
+        <div class="kpi-card" style="cursor: pointer;" onclick="selectFilterTab('NEED_MAP')" title="Click to view Unmapped Supplier Items">
+          <div class="kpi-title">Need to Map</div>
           <div class="kpi-value" id="kpi-total">0</div>
           <div class="kpi-subtitle">Unmapped Items Awaiting AI</div>
         </div>
@@ -258,7 +258,7 @@
       <section class="toolbar">
         <div class="filter-tabs">
           <button class="tab-btn active" data-filter="ALL">All Items (<span id="tab-count-all">0</span>)</button>
-          <button class="tab-btn" data-filter="NEED_MAP">Total Supplier Items (<span id="tab-count-pending">0</span>)</button>
+          <button class="tab-btn" data-filter="NEED_MAP">Need to Map (<span id="tab-count-pending">0</span>)</button>
           <button class="tab-btn" data-filter="MAPPED">AI Mapped Candidates (<span id="tab-count-mapped">0</span>)</button>
           <button class="tab-btn" data-filter="VALIDATE">Need to Validate (<span id="tab-count-validate">0</span>)</button>
           <button class="tab-btn" data-filter="VERIFIED">Mapped and verified (<span id="tab-count-verified">0</span>)</button>
