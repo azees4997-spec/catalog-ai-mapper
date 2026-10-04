@@ -48,9 +48,8 @@ function toTitleCase(str) {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
-function extractSupplierMetadata(item) {
   const rawName = (item.ITEMNAME || '').trim();
-  const rawMfg = (item.COMPANYNAME || '').trim();
+  const rawMfg = (item.COMPANYNAME || '').trim().replace(/\[\d+\]/g, '').trim();
   const rawComp = (item.CONTENT || '').trim();
   const rawPack = (item.PACKING || '').trim();
 
@@ -74,7 +73,7 @@ function extractSupplierMetadata(item) {
   else if (lowerName.includes('cap') || lowerName.includes('capsule')) dosageForm = 'capsule';
 
   const packMatch = rawPack.match(/(\d+(?:\.\d+)?)\s*(gm|g|ml|mg|tab|cap|capsule|strip|tube|bottle)?/i);
-  const packVal = packMatch ? packMatch[1] : '';
+  const packVal = packMatch ? (packMatch[1] + (packMatch[2] ? ' ' + packMatch[2].toLowerCase() : '')).trim() : '';
 
   return {
     rawName,
@@ -171,39 +170,38 @@ async function findCandidatesForSupplierItem(item, rules = defaultRules) {
   let candidates = [];
 
   if (meta.brandPrefix) {
-    const titleBrand = toTitleCase(meta.brandPrefix);
-    const queryUrl1 = `${MASTER_TABLE}?select=*&Product%20Name=like.${encodeURIComponent(titleBrand)}%25&limit=15`;
+    const queryUrl1 = `${MASTER_TABLE}?select=*&Product%20Name=ilike.${encodeURIComponent(meta.brandPrefix)}%25&limit=15`;
     const res1 = await querySupabase(queryUrl1);
     if (Array.isArray(res1) && res1.length > 0) {
       candidates.push(...res1);
     }
 
     if (candidates.length === 0 && meta.brandTokens.length > 1) {
-      const twoWord = `${toTitleCase(meta.brandTokens[0])} ${toTitleCase(meta.brandTokens[1])}`;
-      const queryUrl2 = `${MASTER_TABLE}?select=*&Product%20Name=like.${encodeURIComponent(twoWord)}%25&limit=15`;
+      const twoWord = `${meta.brandTokens[0]} ${meta.brandTokens[1]}`;
+      const queryUrl2 = `${MASTER_TABLE}?select=*&Product%20Name=ilike.${encodeURIComponent(twoWord)}%25&limit=15`;
       const res2 = await querySupabase(queryUrl2);
       if (Array.isArray(res2) && res2.length > 0) candidates.push(...res2);
     }
 
     if (candidates.length === 0 && meta.brandPrefix.length >= 4) {
-      const stemBrand = toTitleCase(meta.brandPrefix.substring(0, 4));
-      const resStem = await querySupabase(`${MASTER_TABLE}?select=*&Product%20Name=like.${encodeURIComponent(stemBrand)}%25&limit=15`);
+      const stemBrand = meta.brandPrefix.substring(0, 4);
+      const resStem = await querySupabase(`${MASTER_TABLE}?select=*&Product%20Name=ilike.${encodeURIComponent(stemBrand)}%25&limit=15`);
       if (Array.isArray(resStem) && resStem.length > 0) candidates.push(...resStem);
     }
   }
 
   if (candidates.length === 0 && meta.rawComp) {
-    const compToken = meta.rawComp.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 3 && !DOSAGE_STOP_WORDS.has(t.toLowerCase()))[0];
-    if (compToken) {
-      const titleComp = toTitleCase(compToken);
-      const resComp = await querySupabase(`${MASTER_TABLE}?select=*&Composition=like.${encodeURIComponent(titleComp)}%25&limit=15`);
+    const compTokens = meta.rawComp.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 3 && !DOSAGE_STOP_WORDS.has(t.toLowerCase()));
+    if (compTokens.length > 0) {
+      const compToken = compTokens[0];
+      const resComp = await querySupabase(`${MASTER_TABLE}?select=*&Composition=ilike.%25${encodeURIComponent(compToken)}%25&limit=15`);
       if (Array.isArray(resComp)) candidates.push(...resComp);
     }
   }
 
   if (candidates.length === 0 && meta.rawName) {
-    const firstWord = toTitleCase(meta.rawName.split(/\s+/)[0]);
-    const resFallback = await querySupabase(`${MASTER_TABLE}?select=*&Product%20Name=like.${encodeURIComponent(firstWord)}%25&limit=10`);
+    const firstWord = meta.rawName.split(/\s+/)[0];
+    const resFallback = await querySupabase(`${MASTER_TABLE}?select=*&Product%20Name=ilike.${encodeURIComponent(firstWord)}%25&limit=10`);
     if (Array.isArray(resFallback)) candidates = resFallback;
   }
 

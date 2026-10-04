@@ -125,6 +125,12 @@
 
     // Modal Backdrop Close & Escape Key Listener
     document.addEventListener('DOMContentLoaded', function() {
+      const savedMapperName = localStorage.getItem('catalog_mapper_name');
+      if (savedMapperName) {
+        const input = document.getElementById('mapper-name-input');
+        if (input) input.value = savedMapperName;
+      }
+
       document.addEventListener('click', function(e) {
         if (e.target.classList && e.target.classList.contains('modal-overlay')) {
           closeModal(e.target.id);
