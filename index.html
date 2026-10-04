@@ -454,7 +454,7 @@
         sheet5 = ss.insertSheet("Sheet5");
       }
       if (sheet5.getLastRow() === 0) {
-        sheet5.getRange(1, 1, 1, 14).setValues([["ITEMCODE", "Supplier Name", "Cand1 Code", "Cand1 Name", "Cand1 Pack", "Cand1 Content", "Cand2 Code", "Cand2 Name", "Cand2 Pack", "Cand2 Content", "Cand3 Code", "Cand3 Name", "Cand3 Pack", "Cand3 Content"]]);
+        sheet5.getRange(1, 1, 1, 14).setValues([["Supplier Code", "Supplier Name", "Supplier Pack", "Supplier Comp", "Supplier MRP", "Cand1 Code", "Cand1 Name", "Cand1 Pack", "Cand2 Code", "Cand2 Name", "Cand2 Pack", "Cand3 Code", "Cand3 Name", "Cand3 Pack"]]);
         sheet5.getRange(1, 1, 1, 14).setFontWeight("bold");
       }
 
@@ -512,9 +512,12 @@
           var rowData5 = [
             row.ITEMCODE || '',
             row.ITEMNAME || '',
-            c1.master_product_id || '', c1.master_product_name || '', c1.master_packaging || '', c1.master_composition || '',
-            c2.master_product_id || '', c2.master_product_name || '', c2.master_packaging || '', c2.master_composition || '',
-            c3.master_product_id || '', c3.master_product_name || '', c3.master_packaging || '', c3.master_composition || ''
+            row.PACKING || '',
+            row.CONTENT || '',
+            row.MRP || '',
+            c1.master_product_id || '', c1.master_product_name || '', c1.master_packaging || '',
+            c2.master_product_id || '', c2.master_product_name || '', c2.master_packaging || '',
+            c3.master_product_id || '', c3.master_product_name || '', c3.master_packaging || ''
           ];
           
           var targetRow5 = sheet5Map[String(row.ITEMCODE).trim()];

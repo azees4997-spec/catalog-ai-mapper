@@ -1548,36 +1548,42 @@ function parseSheet5CSV(csvText) {
     const lines = csvText.split('\n');
     if (lines.length < 1) return;
     let startIndex = (lines[0].toUpperCase().includes('ITEMCODE') || lines[0].toUpperCase().includes('SUPPLIER')) ? 1 : 0;
-    for (let i = startIndex; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-    const cols = parseCSVLine(line);
-    if (cols.length < 2) continue;
     
-    const itemCode = cols[0] ? cols[0].trim() : '';
-    const item = state.items.find(it => it.ITEMCODE === itemCode);
-    if (item) {
-       const cands = [];
-       // C1: 2(Code), 3(Name), 4(Pack), 5(Content)
-       if (cols[2] && cols[2].trim()) {
-           cands.push({ master_product_id: cols[2].trim(), master_product_name: cols[3]?cols[3].trim():'', master_packaging: cols[4]?cols[4].trim():'', master_composition: cols[5]?cols[5].trim():'', confidence_score: 95 });
-       }
-       // C2: 6(Code), 7(Name), 8(Pack), 9(Content)
-       if (cols[6] && cols[6].trim()) {
-           cands.push({ master_product_id: cols[6].trim(), master_product_name: cols[7]?cols[7].trim():'', master_packaging: cols[8]?cols[8].trim():'', master_composition: cols[9]?cols[9].trim():'', confidence_score: 90 });
-       }
-       // C3: 10(Code), 11(Name), 12(Pack), 13(Content)
-       if (cols[10] && cols[10].trim()) {
-           cands.push({ master_product_id: cols[10].trim(), master_product_name: cols[11]?cols[11].trim():'', master_packaging: cols[12]?cols[12].trim():'', master_composition: cols[13]?cols[13].trim():'', confidence_score: 85 });
-       }
-       if (cands.length > 0) {
-           item.candidates = cands;
-           item.top_match = cands[0];
-       }
+    for (let i = startIndex; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        const cols = parseCSVLine(line);
+        if (cols.length < 2) continue;
+        
+        const itemCode = cols[0] ? cols[0].trim() : '';
+        const item = state.items.find(it => it.ITEMCODE === itemCode);
+        
+        if (item) {
+            const cands = [];
+            // C1: Code(5), Name(6), Pack(7)
+            if (cols[5] && cols[5].trim()) {
+                cands.push({ master_product_id: cols[5].trim(), master_product_name: cols[6] ? cols[6].trim() : '', master_packaging: cols[7] ? cols[7].trim() : '', master_composition: '', confidence_score: 95 });
+            }
+            // C2: Code(8), Name(9), Pack(10)
+            if (cols[8] && cols[8].trim()) {
+                cands.push({ master_product_id: cols[8].trim(), master_product_name: cols[9] ? cols[9].trim() : '', master_packaging: cols[10] ? cols[10].trim() : '', master_composition: '', confidence_score: 90 });
+            }
+            // C3: Code(11), Name(12), Pack(13)
+            if (cols[11] && cols[11].trim()) {
+                cands.push({ master_product_id: cols[11].trim(), master_product_name: cols[12] ? cols[12].trim() : '', master_packaging: cols[13] ? cols[13].trim() : '', master_composition: '', confidence_score: 85 });
+            }
+            
+            if (cands.length > 0) {
+                item.candidates = cands;
+                item.top_match = cands[0];
+                if (!item.Status || item.Status.toLowerCase().includes('need to map') || item.Status.toLowerCase().includes('pending')) {
+                    item.Status = 'Mapped';
+                }
+            }
+        }
     }
-  }
-  updateKPICounters();
-  renderTable();
+    updateKPICounters();
+    renderTable();
 }
 
 // Update KPI Counters
