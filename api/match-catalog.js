@@ -172,23 +172,26 @@ async function findCandidatesForSupplierItem(item, rules = defaultRules) {
 
   if (meta.brandPrefix) {
     const titleBrand = toTitleCase(meta.brandPrefix);
-    const queryUrl1 = `${MASTER_TABLE}?select=*&Product%20Name=like.${encodeURIComponent(titleBrand)}%25&limit=15`;
+    const queryUrl1 = `${MASTER_TABLE}?select=*&Product%20Name=like.${encodeURIComponent(titleBrand)}%25&limit=30`;
     const res1 = await querySupabase(queryUrl1);
-    if (Array.isArray(res1) && res1.length > 0) {
-      candidates.push(...res1);
-    }
+    if (Array.isArray(res1)) candidates.push(...res1);
 
-    if (candidates.length === 0 && meta.brandTokens.length > 1) {
+    if (meta.brandTokens.length > 1) {
       const twoWord = `${toTitleCase(meta.brandTokens[0])} ${toTitleCase(meta.brandTokens[1])}`;
       const queryUrl2 = `${MASTER_TABLE}?select=*&Product%20Name=like.${encodeURIComponent(twoWord)}%25&limit=15`;
       const res2 = await querySupabase(queryUrl2);
-      if (Array.isArray(res2) && res2.length > 0) candidates.push(...res2);
+      if (Array.isArray(res2)) candidates.push(...res2);
+
+      const combinedWord = toTitleCase(meta.brandTokens[0].toLowerCase() + meta.brandTokens[1].toLowerCase());
+      const queryUrl3 = `${MASTER_TABLE}?select=*&Product%20Name=like.${encodeURIComponent(combinedWord)}%25&limit=15`;
+      const res3 = await querySupabase(queryUrl3);
+      if (Array.isArray(res3)) candidates.push(...res3);
     }
 
     if (candidates.length === 0 && meta.brandPrefix.length >= 4) {
       const stemBrand = toTitleCase(meta.brandPrefix.substring(0, 4));
       const resStem = await querySupabase(`${MASTER_TABLE}?select=*&Product%20Name=like.${encodeURIComponent(stemBrand)}%25&limit=15`);
-      if (Array.isArray(resStem) && resStem.length > 0) candidates.push(...resStem);
+      if (Array.isArray(resStem)) candidates.push(...resStem);
     }
   }
 
