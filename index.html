@@ -164,7 +164,7 @@
           <span class="status-dot"></span>
           <span>Supabase: <strong>June_Data</strong> (743,963 products)</span>
         </div>
-        <div class="status-pill active" id="sheet-status-pill" style="cursor: pointer;" onclick="openGoogleSheetLink(event)" title="Click to open live Google Sheet in new tab">
+        <div class="status-pill active" id="sheet-status-pill" style="cursor: pointer;" onclick="forceFetchLiveGoogleSheet()" title="Click to fetch live rows directly from Google Sheet Sheet4">
           <span class="status-dot"></span>
           <span id="sheet-name-text">Google Sheet: <strong id="header-sheet-name">Sheet4</strong> <span id="sheet-lock-badge" style="color: #34d399; font-size: 0.8rem; margin-left: 4px;"></span></span>
           <span style="margin-left: 6px; font-size: 0.85rem; opacity: 0.8;" onclick="event.stopPropagation(); openSheetConfigModal();" title="Configure Google Sheet Link & Name">⚙️</span>
@@ -308,7 +308,7 @@
             <h3>Import Supplier Catalog Data</h3>
             <p class="modal-subtitle">Load rows directly from Google Sheet Sheet4 or upload CSV</p>
           </div>
-          <button class="close-btn" id="close-import-modal">&times;</button>
+          <button class="close-btn" id="close-import-modal" onclick="closeModal('import-modal')">&times;</button>
         </div>
         
         <div class="modal-body">
@@ -368,7 +368,7 @@
             <h3>Custom Logic Rules</h3>
             <p class="modal-subtitle">Adjust confidence weights & auto-approval thresholds</p>
           </div>
-          <button class="close-btn" id="close-logic-modal">&times;</button>
+          <button class="close-btn" id="close-logic-modal" onclick="closeModal('logic-modal')">&times;</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
@@ -398,7 +398,7 @@
             <h3>⚡ Real-Time Google Sheet Webhook Sync</h3>
             <p class="modal-subtitle">Connect UI stage transitions directly to Google Sheet Sheet4</p>
           </div>
-          <button class="close-btn" id="close-webhook-modal">&times;</button>
+          <button class="close-btn" id="close-webhook-modal" onclick="closeModal('webhook-modal')">&times;</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
@@ -480,7 +480,7 @@ function doPost(e) {
             <h3>Export Mapped Catalog Data</h3>
             <p class="modal-subtitle">Download clean 11-column CSV or push live to Google Sheet / Supabase</p>
           </div>
-          <button class="close-btn" id="close-export-modal">&times;</button>
+          <button class="close-btn" id="close-export-modal" onclick="closeModal('export-modal')">&times;</button>
         </div>
         <div class="modal-body">
           <div id="export-summary-box" style="background: var(--bg-dark); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
@@ -510,7 +510,7 @@ function doPost(e) {
             <h3>Nearest RXP Candidates</h3>
             <p class="modal-subtitle" id="candidate-supplier-item-title">Select closest master product match</p>
           </div>
-          <button class="close-btn" id="close-candidate-modal">&times;</button>
+          <button class="close-btn" id="close-candidate-modal" onclick="closeModal('candidate-modal')">&times;</button>
         </div>
         <div class="modal-body">
           <div id="candidate-list" class="candidate-list">
@@ -528,7 +528,7 @@ function doPost(e) {
             <h3>Search Supabase June_Data (743,963 products)</h3>
             <p class="modal-subtitle" id="search-supplier-item-title">Find exact RXP product in master database</p>
           </div>
-          <button class="close-btn" id="close-search-modal">&times;</button>
+          <button class="close-btn" id="close-search-modal" onclick="closeModal('search-modal')">&times;</button>
         </div>
         <div class="modal-body">
           <div class="search-input-group">
