@@ -25,6 +25,13 @@
         el.style.display = 'none';
       }
     }
+    function openSheetConfigModal() {
+      var urlInput = document.getElementById('sheet-url-config-input');
+      var nameInput = document.getElementById('sheet-name-config-input');
+      if (urlInput && window.state) urlInput.value = window.state.sheetUrl || '';
+      if (nameInput && window.state) nameInput.value = window.state.sheetName || 'Sheet3';
+      openModal('sheet-config-modal');
+    }
     function openWebhookModal() {
       var modal = document.getElementById('webhook-modal');
       if (modal) {
@@ -47,7 +54,7 @@
       if (window.state) window.state.webhookUrl = url;
       localStorage.setItem('catalog_webhook_url', url);
       closeModal('webhook-modal');
-      alert('⚡ Google Sheet Webhook Sync enabled!\n\nYour UI clicks will now update Google Sheet Sheet3 in real-time.');
+      alert('⚡ Google Sheet Webhook Sync enabled!\n\nYour UI clicks will now update Google Sheet in real-time.');
     }
     function copyAppsScriptCode() {
       var code = document.getElementById('apps-script-code').value;
@@ -103,13 +110,16 @@
           <span class="status-dot"></span>
           <span>Supabase: <strong>June_Data</strong> (743,963 products)</span>
         </div>
-        <div class="status-pill active" id="sheet-status-pill" style="cursor: pointer;" onclick="autoFetchGoogleSheetData(false)" title="Click to fetch latest live Google Sheet Sheet3 data">
+        <div class="status-pill active" id="sheet-status-pill" style="cursor: pointer;" onclick="openSheetConfigModal()" title="Click to configure Google Sheet Link and Sheet Name">
           <span class="status-dot"></span>
-          <span id="sheet-name-text">Google Sheet: <strong>Sheet3</strong> (Live Sync 🔄)</span>
+          <span id="sheet-name-text">Google Sheet: <strong id="header-sheet-name">Sheet3</strong> <span id="sheet-lock-badge" style="color: #34d399; font-size: 0.8rem; margin-left: 4px;"></span></span>
         </div>
       </div>
 
       <div class="header-actions">
+        <button class="btn btn-secondary" id="btn-lock-sheet" onclick="toggleLockSheetData()" title="Lock Sheet Data so page reloads do not wipe state">
+          <span id="lock-icon">🔓</span> <span id="lock-text">Lock Sheet Data</span>
+        </button>
         <button class="btn btn-secondary" id="btn-theme-toggle" onclick="toggleTheme()" title="Toggle Light/Dark Theme">
           <span class="icon" id="theme-toggle-icon">☀️</span> <span id="theme-toggle-text">Light Mode</span>
         </button>
@@ -198,13 +208,44 @@
 
     </main>
 
+    <!-- Modal 0: Google Sheet Link & Tab Name Configuration Modal -->
+    <div id="sheet-config-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <h3>🔗 Google Sheet Link & Tab Configuration</h3>
+            <p class="modal-subtitle">Connect your custom Google Sheet URL and Tab Name</p>
+          </div>
+          <button class="close-btn" onclick="closeModal('sheet-config-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Google Sheet Web URL or Share Link:</label>
+            <input type="url" id="sheet-url-config-input" class="form-input large" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
+          </div>
+          <div class="form-group">
+            <label>Sheet Tab Name (e.g., Sheet3, SupplierCatalog):</label>
+            <input type="text" id="sheet-name-config-input" class="form-input" placeholder="Sheet3" value="Sheet3">
+          </div>
+          <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="btn btn-primary" style="flex: 1;" onclick="saveSheetConfigAndFetch()">
+              ⚡ Connect & Fetch Sheet Data
+            </button>
+            <button class="btn btn-success" style="flex: 1;" onclick="toggleLockSheetData(); closeModal('sheet-config-modal');">
+              🔒 Lock Current Sheet Data
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal 1: Import Modal -->
     <div id="import-modal" class="modal-overlay hidden">
       <div class="modal-card wide">
         <div class="modal-header">
           <div>
             <h3>Import Supplier Catalog Data</h3>
-            <p class="modal-subtitle">Load rows directly from Google Sheet Sheet3 or upload CSV</p>
+            <p class="modal-subtitle">Load rows directly from Google Sheet or upload CSV</p>
           </div>
           <button class="close-btn" id="close-import-modal">&times;</button>
         </div>
@@ -219,7 +260,7 @@
           <!-- Tab 1: Paste Sheet Rows -->
           <div id="import-tab-paste" class="import-tab-content active">
             <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 10px;">
-              Copy your columns directly from Google Sheet Sheet3 and paste them below:
+              Copy your columns directly from Google Sheet and paste them below:
             </p>
             <textarea id="paste-sheet-input" class="form-input" style="height: 180px; font-family: monospace; font-size: 0.8rem;" placeholder="Paste copied Google Sheet rows here (ITEMCODE, ITEMNAME, PACKING, CONTENT, COMPANYNAME, SALERATE, MRP, RXP Code, RXP Name, RXP Pack Size, Status)..."></textarea>
             <button class="btn btn-primary btn-block" id="btn-parse-pasted-sheet" style="margin-top: 14px;">
@@ -294,29 +335,30 @@
         <div class="modal-header">
           <div>
             <h3>⚡ Real-Time Google Sheet Webhook Sync</h3>
-            <p class="modal-subtitle">Connect UI clicks directly to your live Google Sheet Sheet3</p>
+            <p class="modal-subtitle">Connect UI clicks directly to your live Google Sheet</p>
           </div>
           <button class="close-btn" id="close-webhook-modal">&times;</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label style="font-weight: 700; color: #a5b4fc;">Google Apps Script Webhook URL:</label>
+            <label style="font-weight: 700; color: var(--primary);">Google Apps Script Webhook URL:</label>
             <input type="url" id="webhook-url-input" class="form-input large" placeholder="https://script.google.com/macros/s/.../exec">
             <p class="help-text" style="margin-top: 6px;">
-              Paste your deployed Google Apps Script Webhook URL above. Whenever you click <strong>⚡ Validate & Lock Match</strong> or <strong>✕ Not Available</strong>, your Google Sheet Sheet3 will update live!
+              Paste your deployed Google Apps Script Webhook URL above. Whenever you click <strong>⚡ Validate & Lock Match</strong> or <strong>✕ Not Available</strong>, your Google Sheet will update live!
             </p>
           </div>
 
           <div style="background: var(--bg-dark); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-              <strong style="font-size: 0.9rem; color: #ffffff;">Google Apps Script Code (Copy into Sheets -> Extensions -> Apps Script):</strong>
+              <strong style="font-size: 0.9rem; color: var(--text-main);">Google Apps Script Code (Copy into Sheets -> Extensions -> Apps Script):</strong>
               <button class="btn btn-secondary btn-sm" id="btn-copy-script-code">📋 Copy Code</button>
             </div>
             <textarea id="apps-script-code" class="form-input" style="height: 140px; font-family: monospace; font-size: 0.78rem;" readonly>
 function doPost(e) {
   try {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sheet3");
-    if (!sheet) return ContentService.createTextOutput(JSON.stringify({error: "Sheet3 not found"})).setMimeType(ContentService.MimeType.JSON);
+    var sheetName = "Sheet3";
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+    if (!sheet) sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
     var data = JSON.parse(e.postData.contents);
     var rows = Array.isArray(data) ? data : [data];
     var lastRow = sheet.getLastRow();
