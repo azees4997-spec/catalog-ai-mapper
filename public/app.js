@@ -232,57 +232,29 @@ const StorageManager = {
   }
 };
 
-// Guarantee every item has 3 full candidate cards for easy decision making
+// Ensure item candidates use real Supabase master product data or sheet mappings
 function ensureItemCandidates(item) {
-  if (Array.isArray(item.candidates) && item.candidates.length >= 3) {
+  if (Array.isArray(item.candidates) && item.candidates.length > 0) {
     return item.candidates;
   }
 
-  const baseCode = item['RXP Code'] || 'DRS' + Math.floor(100000 + Math.random() * 899999);
-  const baseName = item['RXP Name'] || item.ITEMNAME || 'Product Name';
-  const basePack = item['RXP Pack Size'] || item.PACKING || 'Standard Pack';
-  const baseComp = item.CONTENT || 'Active Composition';
-  const company = item.COMPANYNAME || 'Supplier';
-
-  const c1 = {
-    master_product_id: baseCode,
-    master_product_name: baseName,
-    master_packaging: basePack,
-    master_manufacturer: company,
-    master_composition: baseComp,
-    confidence_score: 95,
-    metadata_scores: { item_name: 96, pack_size: 92, manufacturer: 90, composition: 98 }
-  };
-
-  const c2 = {
-    master_product_id: baseCode.includes('-ALT') ? baseCode : baseCode + '-ALT',
-    master_product_name: baseName.includes('Max') ? baseName : baseName + ' (Forte / Max)',
-    master_packaging: basePack,
-    master_manufacturer: company,
-    master_composition: baseComp + ' + Extra Formulation',
-    confidence_score: 84,
-    metadata_scores: { item_name: 85, pack_size: 90, manufacturer: 88, composition: 82 }
-  };
-
-  const c3 = {
-    master_product_id: baseCode.includes('-GEN') ? baseCode : baseCode + '-GEN',
-    master_product_name: baseName + ' Generic Equivalent',
-    master_packaging: basePack,
-    master_manufacturer: 'Generic Pharma Master',
-    master_composition: baseComp,
-    confidence_score: 76,
-    metadata_scores: { item_name: 78, pack_size: 85, manufacturer: 70, composition: 90 }
-  };
-
-  if (Array.isArray(item.candidates) && item.candidates.length > 0) {
-    const list = [...item.candidates];
-    if (list.length < 2) list.push(c2);
-    if (list.length < 3) list.push(c3);
-    item.candidates = list;
-  } else {
-    item.candidates = [c1, c2, c3];
+  // If item has a real RXP Code & RXP Name from Sheet4, construct real candidate #1
+  if (item['RXP Code'] && item['RXP Code'].trim() !== '') {
+    const realCand = {
+      master_product_id: item['RXP Code'],
+      master_product_name: item['RXP Name'] || item.ITEMNAME || 'Master Product',
+      master_packaging: item['RXP Pack Size'] || item.PACKING || '',
+      master_manufacturer: item.COMPANYNAME || 'Master Catalog',
+      master_composition: item.CONTENT || '',
+      confidence_score: 95,
+      metadata_scores: { item_name: 96, pack_size: 92, manufacturer: 90, composition: 98 }
+    };
+    item.candidates = [realCand];
+    return item.candidates;
   }
 
+  // Unmapped items have no candidates until AI Batch Match or Master Search is run
+  item.candidates = item.candidates || [];
   return item.candidates;
 }
 
@@ -1110,8 +1082,16 @@ function sendWebhookUpdate(items) {
 
 window.openWebhookModal = function() {
   const input = document.getElementById('webhook-url-input');
-  if (input) input.value = state.webhookUrl || '';
+  if (input) {
+    input.value = state.webhookUrl || localStorage.getItem('catalog_webhook_url') || '';
+  }
   openModal('webhook-modal');
+  setTimeout(() => {
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  }, 100);
 };
 
 window.saveWebhookUrl = function() {

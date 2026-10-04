@@ -28,6 +28,29 @@
       var url = (window.state && window.state.sheetUrl) ? window.state.sheetUrl : 'https://docs.google.com/spreadsheets/d/1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8/edit#gid=691679338';
       window.open(url, '_blank');
     }
+    function selectFilterTab(filterKey) {
+      if (window.state) window.state.currentFilter = filterKey;
+      document.querySelectorAll('.tab-btn').forEach(function(btn) {
+        if (btn.getAttribute('data-filter') === filterKey) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+      if (window.renderTable) window.renderTable();
+    }
+    function pasteWebhookFromClipboard() {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        navigator.clipboard.readText().then(function(text) {
+          var input = document.getElementById('webhook-url-input');
+          if (input && text) {
+            input.value = text.trim();
+            if (window.state) window.state.webhookUrl = text.trim();
+            localStorage.setItem('catalog_webhook_url', text.trim());
+          }
+        });
+      }
+    }
     function openSheetConfigModal() {
       var urlInput = document.getElementById('sheet-url-config-input');
       var nameInput = document.getElementById('sheet-name-config-input');
@@ -174,27 +197,27 @@
 
       <!-- Metrics KPI Dashboard: Total Supplier Items, AI Mapped, Need to Validate, Mapped and verified, Not Available -->
       <section class="kpi-grid">
-        <div class="kpi-card">
+        <div class="kpi-card" style="cursor: pointer;" onclick="selectFilterTab('NEED_MAP')" title="Click to view Total Supplier Items">
           <div class="kpi-title">Total Supplier Items</div>
           <div class="kpi-value" id="kpi-total">0</div>
           <div class="kpi-subtitle">Unmapped Items Awaiting AI</div>
         </div>
-        <div class="kpi-card nearest">
+        <div class="kpi-card nearest" style="cursor: pointer;" onclick="selectFilterTab('MAPPED')" title="Click to view AI Mapped Candidates">
           <div class="kpi-title">AI Mapped</div>
           <div class="kpi-value" id="kpi-mapped">0</div>
           <div class="kpi-subtitle">Candidate Suggestions Ready</div>
         </div>
-        <div class="kpi-card validate">
+        <div class="kpi-card validate" style="cursor: pointer;" onclick="selectFilterTab('VALIDATE')" title="Click to view Need to Validate">
           <div class="kpi-title">Need to Validate</div>
           <div class="kpi-value" id="kpi-validate">0</div>
           <div class="kpi-subtitle">Awaiting Accept / Reject</div>
         </div>
-        <div class="kpi-card verified">
+        <div class="kpi-card verified" style="cursor: pointer;" onclick="selectFilterTab('VERIFIED')" title="Click to view Mapped and Verified">
           <div class="kpi-title">Mapped and verified</div>
           <div class="kpi-value" id="kpi-approved">0</div>
           <div class="kpi-subtitle">Accepted & Locked Mappings</div>
         </div>
-        <div class="kpi-card not-avail">
+        <div class="kpi-card not-avail" style="cursor: pointer;" onclick="selectFilterTab('NOT_AVAILABLE')" title="Click to view Not Available">
           <div class="kpi-title">Not Available</div>
           <div class="kpi-value" id="kpi-not-avail">0</div>
           <div class="kpi-subtitle">Item Not in Master Catalog</div>
@@ -362,7 +385,10 @@
         <div class="modal-body">
           <div class="form-group">
             <label style="font-weight: 700; color: var(--primary);">Google Apps Script Webhook URL:</label>
-            <input type="url" id="webhook-url-input" class="form-input large" placeholder="https://script.google.com/macros/s/.../exec">
+            <div style="display: flex; gap: 8px; margin-top: 6px;">
+              <input type="url" id="webhook-url-input" class="form-input large" style="flex: 1; user-select: text;" placeholder="https://script.google.com/macros/s/.../exec">
+              <button class="btn btn-secondary btn-sm" onclick="pasteWebhookFromClipboard()">📋 Paste URL</button>
+            </div>
             <p class="help-text" style="margin-top: 6px;">
               Paste your deployed Apps Script Webhook URL above. Every stage transition (<strong>MAP</strong>, <strong>ACCEPT</strong>, <strong>REJECT</strong>) will sync directly to Google Sheet Sheet4 in real-time!
             </p>
