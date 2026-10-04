@@ -48,6 +48,7 @@ function toTitleCase(str) {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
+function extractSupplierMetadata(item) {
   const rawName = (item.ITEMNAME || '').trim();
   const rawMfg = (item.COMPANYNAME || '').trim().replace(/\[\d+\]/g, '').trim();
   const rawComp = (item.CONTENT || '').trim();
