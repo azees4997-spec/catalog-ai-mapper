@@ -26,7 +26,7 @@ const SAMPLE_SUPPLIER_ITEMS = [
   { ITEMCODE: '000020', ITEMNAME: 'PODOWART PAINT', PACKING: '10ML', CONTENT: 'ALOEVERA+BENZOIC ACID+PODOPHYLLUM RESIN', COMPANYNAME: 'INVIDA INDIA PVT LIMITED', SALERATE: '222.86', MRP: '292.5', 'RXP Code': 'DRS243475', 'RXP Name': 'Podowart Paint', 'RXP Pack Size': 'bottle of 10 ml paint', Status: 'Mapped and verified' }
 ];
 
-// Persistent Storage Manager (IndexedDB + localStorage)
+// Persistent Dual-Redundancy Storage Manager (localStorage + IndexedDB)
 const StorageManager = {
   dbName: 'CatalogMapperDB',
   storeName: 'catalog_state',
@@ -50,20 +50,35 @@ const StorageManager = {
       localStorage.setItem('catalog_webhook_url', webhookUrl);
     }
     if (items && Array.isArray(items) && items.length > 0) {
+      // 1. Double-Redundancy Save to localStorage
+      try {
+        localStorage.setItem('catalog_saved_items', JSON.stringify(items));
+      } catch (err) {
+        console.warn('localStorage save warning:', err);
+      }
+      // 2. Double-Redundancy Save to IndexedDB
       try {
         const db = await this.openDB();
         const tx = db.transaction(this.storeName, 'readwrite');
         const store = tx.objectStore(this.storeName);
         store.put(items, 'saved_items');
       } catch (e) {
-        try {
-          localStorage.setItem('catalog_saved_items', JSON.stringify(items));
-        } catch (err) {}
+        console.warn('IndexedDB save warning:', e);
       }
     }
   },
 
   loadState: async function() {
+    // 1. Check localStorage first for instant synchronous reload safety
+    try {
+      const raw = localStorage.getItem('catalog_saved_items');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+
+    // 2. Fallback to IndexedDB
     try {
       const db = await this.openDB();
       return new Promise((resolve) => {
@@ -78,14 +93,7 @@ const StorageManager = {
         req.onerror = () => resolve(null);
       });
     } catch (e) {
-      try {
-        const raw = localStorage.getItem('catalog_saved_items');
-        const parsed = raw ? JSON.parse(raw) : null;
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        return null;
-      } catch (err) {
-        return null;
-      }
+      return null;
     }
   }
 };
@@ -149,20 +157,22 @@ window.autoFetchGoogleSheetData = async function(silent = false) {
   return false;
 };
 
-// Initialize DOM elements & Listeners with persistent state restoration & live Google Sheet auto-fetch
+// Initialize DOM elements & Listeners with persistent state restoration
 document.addEventListener('DOMContentLoaded', async () => {
   initEventListeners();
   window.updateWebhookStatusUI();
 
+  // Load saved state from storage
   const savedItems = await StorageManager.loadState();
   if (savedItems && Array.isArray(savedItems) && savedItems.length > 0) {
     state.items = savedItems;
     updateKPICounters();
     renderTable();
-    // Refresh in background silently
-    window.autoFetchGoogleSheetData(true);
+    console.log(`Loaded ${savedItems.length} items from saved state.`);
+    // IMPORTANT: Do NOT run autoFetchGoogleSheetData(true) if saved items exist!
+    // This locks the state so refreshes preserve matches and decisions cleanly.
   } else {
-    // Cold start: auto-fetch all live Google Sheet Sheet3 data
+    // Cold start: auto-fetch live Google Sheet data
     const fetched = await window.autoFetchGoogleSheetData(false);
     if (!fetched) loadSampleData();
   }
@@ -342,6 +352,8 @@ function parsePastedSheetData() {
     let status = 'Neeed to Map';
     if (sLower.includes('mapped and verified') || sLower.includes('verified')) {
       status = 'Mapped and verified';
+    } else if (sLower.includes('need to validate') || sLower.includes('validate')) {
+      status = 'Need to Validate';
     } else if (sLower.includes('neeed to map') || sLower.includes('need to map')) {
       status = 'Neeed to Map';
     } else if (sLower.includes('mapped')) {
@@ -354,6 +366,7 @@ function parsePastedSheetData() {
 
     if (existing && (
       existing.Status === 'Mapped' ||
+      existing.Status === 'Need to Validate' ||
       existing.Status === 'AI Matched' ||
       existing.Status === 'Mapped and verified' ||
       existing.Status === 'APPROVED' ||
@@ -450,8 +463,11 @@ async function startBatchMatchingProcess() {
               state.items[itemIndex]['RXP Name'] = matchedRes.top_match.master_product_name;
               state.items[itemIndex]['RXP Pack Size'] = matchedRes.top_match.master_packaging;
             }
+            // Move matched items to 'Need to Validate' for user review & lock
             if (matchedRes.top_match && matchedRes.top_match.confidence_score >= state.mappingRules.minConfidenceThreshold) {
-              state.items[itemIndex].Status = 'Mapped';
+              state.items[itemIndex].Status = 'Need to Validate';
+            } else if (matchedRes.candidates && matchedRes.candidates.length > 0) {
+              state.items[itemIndex].Status = 'Need to Validate';
             }
           }
         });
@@ -475,11 +491,11 @@ async function startBatchMatchingProcess() {
   state.isMatchingActive = false;
   matchBtn.disabled = false;
   matchBtn.style.opacity = '1';
-  progressText.textContent = `AI Batch Matching complete! ${processed} items processed.`;
+  progressText.textContent = `AI Batch Matching complete! ${processed} items matched and placed in "Need to Validate" tab.`;
 }
 
-// Direct selection of candidate card match
-window.selectCandidateMatchDirect = function(itemId, masterProductId, masterProductName, masterPackaging) {
+// 1-Click Action to Validate & Lock AI Match
+window.validateAndLockMatch = function(itemId, masterProductId, masterProductName, masterPackaging) {
   const item = state.items.find(i => i.id === itemId);
   if (!item) return;
 
@@ -496,6 +512,11 @@ window.selectCandidateMatchDirect = function(itemId, masterProductId, masterProd
   StorageManager.saveState(state.items, state.webhookUrl);
 };
 
+// Direct selection of candidate card match
+window.selectCandidateMatchDirect = function(itemId, masterProductId, masterProductName, masterPackaging) {
+  window.validateAndLockMatch(itemId, masterProductId, masterProductName, masterPackaging);
+};
+
 // Render Cards View matching user specification:
 // Top Card: Supplier product name, supplier pack size, Composition, manufacturer name, Supplier product code
 // Below Top Card: Top 3 matching cards horizontally displaying Master Product Name, Master Pack Size, Manufacturer, Composition, and scores for each item & metadata!
@@ -506,6 +527,7 @@ function renderTable() {
 
   let filtered = state.items.filter(item => {
     if (state.currentFilter === 'VERIFIED' && (item.Status !== 'Mapped and verified' && item.Status !== 'APPROVED')) return false;
+    if (state.currentFilter === 'VALIDATE' && item.Status !== 'Need to Validate') return false;
     if (state.currentFilter === 'NEED_MAP' && (item.Status !== 'Neeed to Map' && item.Status !== 'PENDING_REVIEW')) return false;
     if (state.currentFilter === 'MAPPED' && (item.Status !== 'Mapped' && item.Status !== 'AI Matched')) return false;
     if (state.currentFilter === 'NOT_AVAILABLE' && item.Status !== 'Not Available') return false;
@@ -522,13 +544,14 @@ function renderTable() {
     return true;
   });
 
-  // Sort items so 'Mapped and verified' items ALWAYS show AT THE TOP of the list!
+  // Sort items: Mapped and verified items ALWAYS sort AT THE TOP!
   const getStatusPriority = (status) => {
     if (status === 'Mapped and verified' || status === 'APPROVED') return 1;
-    if (status === 'Neeed to Map' || status === 'PENDING_REVIEW') return 2;
-    if (status === 'Mapped' || status === 'AI Matched') return 3;
-    if (status === 'Not Available') return 4;
-    return 5;
+    if (status === 'Need to Validate') return 2;
+    if (status === 'Neeed to Map' || status === 'PENDING_REVIEW') return 3;
+    if (status === 'Mapped' || status === 'AI Matched') return 4;
+    if (status === 'Not Available') return 5;
+    return 6;
   };
 
   filtered.sort((a, b) => getStatusPriority(a.Status) - getStatusPriority(b.Status));
@@ -545,17 +568,24 @@ function renderTable() {
     cardWrapper.className = 'supplier-item-card';
 
     let statusBadgeHtml = '';
-    if (item.Status === 'Mapped and verified' || item.Status === 'APPROVED') statusBadgeHtml = `<span class="badge badge-approved">✓ Mapped and verified</span>`;
-    else if (item.Status === 'Mapped' || item.Status === 'AI Matched') statusBadgeHtml = `<span class="badge badge-ai">⚡ Mapped</span>`;
-    else if (item.Status === 'Not Available') statusBadgeHtml = `<span class="badge badge-notavail">✕ Not Available</span>`;
-    else statusBadgeHtml = `<span class="badge badge-pending">Neeed to Map</span>`;
+    if (item.Status === 'Mapped and verified' || item.Status === 'APPROVED') {
+      statusBadgeHtml = `<span class="badge badge-approved">✓ Mapped and verified</span>`;
+    } else if (item.Status === 'Need to Validate') {
+      statusBadgeHtml = `<span class="badge badge-validate">⚡ Need to Validate</span>`;
+    } else if (item.Status === 'Mapped' || item.Status === 'AI Matched') {
+      statusBadgeHtml = `<span class="badge badge-ai">⚡ Mapped</span>`;
+    } else if (item.Status === 'Not Available') {
+      statusBadgeHtml = `<span class="badge badge-notavail">✕ Not Available</span>`;
+    } else {
+      statusBadgeHtml = `<span class="badge badge-pending">Neeed to Map</span>`;
+    }
 
-    // Candidate Cards (Top 3 Matching Cards Horizontally)
+    // Candidate Cards (Top 3 Matching Cards Horizontally with distinct Eye-Catching Color Themes)
     let candidatesHtml = '';
     const candidates = item.candidates || [];
     
     if (item.Status === 'Not Available') {
-      candidatesHtml = `<div style="color: var(--danger); font-weight: 600; padding: 12px;">🚫 Item marked as Not Available in Supabase Master Catalog.</div>`;
+      candidatesHtml = `<div style="color: var(--danger); font-weight: 600; padding: 12px; grid-column: span 3;">🚫 Item marked as Not Available in Supabase Master Catalog.</div>`;
     } else if (candidates.length === 0 && !item['RXP Code']) {
       candidatesHtml = `
         <div style="color: var(--text-dim); padding: 14px; grid-column: span 3; font-style: italic;">
@@ -581,20 +611,25 @@ function renderTable() {
           composition: cand.confidence_score || 85
         };
 
+        const isVerified = item.Status === 'Mapped and verified' || item.Status === 'APPROVED';
         const isSelected = item['RXP Code'] === cand.master_product_id;
+        
+        // Distinct Rank Color Themes
+        const rankClass = idx === 0 ? 'cand-rank-1' : (idx === 1 ? 'cand-rank-2' : 'cand-rank-3');
+        const rankBadgeLabel = idx === 0 ? '#1 Rank Match (Best Fit)' : (idx === 1 ? '#2 Rank Candidate' : '#3 Rank Candidate');
 
         candidatesHtml += `
-          <div class="candidate-card-horizontal ${idx === 0 ? 'top-match' : ''}">
+          <div class="candidate-card-horizontal ${rankClass}">
             <div>
               <div class="card-header-bar">
-                <span class="rank-tag">#${idx + 1} Candidate</span>
+                <span class="rank-tag">${rankBadgeLabel}</span>
                 <span class="overall-score-pill ${cand.confidence_score >= 80 ? 'high' : 'medium'}">${cand.confidence_score}% Match</span>
               </div>
               
               <h4 class="cand-name">${cand.master_product_name}</h4>
               
               <div class="cand-detail-list">
-                <div><strong>RXP Code:</strong> <span style="font-family: monospace; color: #a5b4fc;">${cand.master_product_id}</span></div>
+                <div><strong>RXP Code:</strong> <span style="font-family: monospace; font-weight: 700; color: var(--text-main);">${cand.master_product_id}</span></div>
                 <div><strong>Pack Size:</strong> ${cand.master_packaging || 'N/A'}</div>
                 <div><strong>Manufacturer:</strong> ${cand.master_manufacturer || 'Master Catalog'}</div>
                 <div><strong>Composition:</strong> ${cand.master_composition || 'N/A'}</div>
@@ -625,8 +660,8 @@ function renderTable() {
               </div>
             </div>
 
-            <button class="btn ${isSelected ? 'btn-success' : 'btn-primary'} btn-sm btn-block" style="margin-top: 10px;" onclick="selectCandidateMatchDirect('${item.id}', '${cand.master_product_id}', '${escapeHtml(cand.master_product_name)}', '${escapeHtml(cand.master_packaging)}')">
-              ${isSelected ? '✓ Currently Mapped' : '✓ Select & Map Candidate'}
+            <button class="btn ${isSelected && isVerified ? 'btn-success' : 'btn-primary'} btn-sm btn-block" style="margin-top: 10px; font-weight: 700;" onclick="validateAndLockMatch('${item.id}', '${cand.master_product_id}', '${escapeHtml(cand.master_product_name)}', '${escapeHtml(cand.master_packaging)}')">
+              ${isSelected && isVerified ? '✓ Mapped & Locked' : '⚡ Validate & Lock Match'}
             </button>
           </div>
         `;
@@ -651,7 +686,7 @@ function renderTable() {
           </div>
           <div class="meta-field">
             <span class="meta-label">Manufacturer Name</span>
-            <span class="meta-value" style="color: #a5b4fc;">${item.COMPANYNAME || 'Supplier'}</span>
+            <span class="meta-value" style="color: var(--primary); font-weight: 600;">${item.COMPANYNAME || 'Supplier'}</span>
           </div>
           <div class="meta-field wide">
             <span class="meta-label">Composition</span>
@@ -678,7 +713,7 @@ function renderTable() {
   });
 }
 
-// Background Real-Time Google Sheet Webhook Sync (Option B)
+// Background Real-Time Google Sheet Webhook Sync
 function sendWebhookUpdate(items) {
   if (!state.webhookUrl) return;
   const itemArray = Array.isArray(items) ? items : [items];
@@ -857,8 +892,8 @@ async function executeMasterSearch() {
       itemDiv.className = 'search-result-item';
       itemDiv.innerHTML = `
         <div>
-          <div style="font-weight: 700; color: #ffffff;">${r['Product Name']}</div>
-          <div style="font-size: 0.82rem; color: #a5b4fc;">RXP Code: ${r['Product ID']} | Comp: ${r['Composition']}</div>
+          <div style="font-weight: 700; color: var(--text-main);">${r['Product Name']}</div>
+          <div style="font-size: 0.82rem; color: var(--primary);">RXP Code: ${r['Product ID']} | Comp: ${r['Composition']}</div>
           <div style="font-size: 0.78rem; color: var(--text-muted);">Pack Size: ${r['Packaging Detail']}</div>
         </div>
         <button class="btn btn-primary btn-sm" onclick="assignCustomMasterMatch('${r['Product ID']}', '${escapeHtml(r['Product Name'])}', '${escapeHtml(r['Composition'])}', '${escapeHtml(r['Packaging Detail'])}')">Assign RXP Item</button>
@@ -966,6 +1001,8 @@ function parseCSVText(csvText, silent = false) {
     let status = 'Neeed to Map';
     if (sLower.includes('mapped and verified') || sLower.includes('verified')) {
       status = 'Mapped and verified';
+    } else if (sLower.includes('need to validate') || sLower.includes('validate')) {
+      status = 'Need to Validate';
     } else if (sLower.includes('neeed to map') || sLower.includes('need to map')) {
       status = 'Neeed to Map';
     } else if (sLower.includes('mapped')) {
@@ -979,6 +1016,7 @@ function parseCSVText(csvText, silent = false) {
     // Preserve local item if it has been mapped, verified, or candidates generated
     if (existing && (
       existing.Status === 'Mapped' ||
+      existing.Status === 'Need to Validate' ||
       existing.Status === 'AI Matched' ||
       existing.Status === 'Mapped and verified' ||
       existing.Status === 'APPROVED' ||
@@ -1040,16 +1078,21 @@ async function fetchGoogleSheetData() {
   }
 }
 
-// Update KPI Counters for exact status sequence: Mapped and verified, Neeed to Map, Mapped, Not Available
+// Update KPI Counters for exact status sequence: Mapped and verified, Need to Validate, Neeed to Map, Mapped, Not Available
 function updateKPICounters() {
   const total = state.items.length;
   const verified = state.items.filter(i => i.Status === 'Mapped and verified' || i.Status === 'APPROVED').length;
+  const validate = state.items.filter(i => i.Status === 'Need to Validate').length;
   const pending = state.items.filter(i => i.Status === 'Neeed to Map' || i.Status === 'PENDING_REVIEW').length;
   const mapped = state.items.filter(i => i.Status === 'Mapped' || i.Status === 'AI Matched').length;
   const notAvail = state.items.filter(i => i.Status === 'Not Available').length;
 
   document.getElementById('kpi-total').textContent = total.toLocaleString();
   document.getElementById('kpi-approved').textContent = verified.toLocaleString();
+  
+  const kpiVal = document.getElementById('kpi-validate');
+  if (kpiVal) kpiVal.textContent = validate.toLocaleString();
+
   document.getElementById('kpi-pending').textContent = pending.toLocaleString();
   
   const kpiMapped = document.getElementById('kpi-mapped') || document.getElementById('kpi-matched');
@@ -1059,6 +1102,10 @@ function updateKPICounters() {
 
   document.getElementById('tab-count-all').textContent = total.toLocaleString();
   document.getElementById('tab-count-verified').textContent = verified.toLocaleString();
+  
+  const tabVal = document.getElementById('tab-count-validate');
+  if (tabVal) tabVal.textContent = validate.toLocaleString();
+
   document.getElementById('tab-count-pending').textContent = pending.toLocaleString();
 
   const tabMapped = document.getElementById('tab-count-mapped') || document.getElementById('tab-count-ai');
@@ -1071,6 +1118,7 @@ function updateKPICounters() {
 function updateExportSummary() {
   const total = state.items.length;
   const verified = state.items.filter(i => i.Status === 'Mapped and verified' || i.Status === 'APPROVED' || i.Status === 'Mapped').length;
+  const validate = state.items.filter(i => i.Status === 'Need to Validate').length;
   const pending = state.items.filter(i => i.Status === 'Neeed to Map' || i.Status === 'PENDING_REVIEW').length;
   const notAvail = state.items.filter(i => i.Status === 'Not Available').length;
 
@@ -1078,6 +1126,7 @@ function updateExportSummary() {
     <div style="font-size: 0.9rem; line-height: 1.6;">
       <p><strong>Total Supplier Items:</strong> ${total.toLocaleString()}</p>
       <p><strong>Mapped and verified:</strong> ${verified.toLocaleString()}</p>
+      <p><strong>Need to Validate:</strong> ${validate.toLocaleString()}</p>
       <p><strong>Neeed to Map:</strong> ${pending.toLocaleString()}</p>
       <p><strong>Marked as Not Available:</strong> ${notAvail.toLocaleString()}</p>
     </div>
@@ -1092,7 +1141,7 @@ async function batchSyncAllToGoogleSheet() {
     return;
   }
 
-  const mappedItems = state.items.filter(i => i.Status === 'Mapped and verified' || i.Status === 'Mapped' || i.Status === 'Not Available');
+  const mappedItems = state.items.filter(i => i.Status === 'Mapped and verified' || i.Status === 'Need to Validate' || i.Status === 'Mapped' || i.Status === 'Not Available');
   if (mappedItems.length === 0) {
     alert('No mapped items to sync yet. Run AI Batch Match or map items first!');
     return;

@@ -61,6 +61,27 @@
         document.execCommand('copy');
         alert('📋 Google Apps Script code copied to clipboard!');
       }
+    function toggleTheme() {
+      var isLight = document.body.classList.toggle('light-mode');
+      localStorage.setItem('catalog_theme', isLight ? 'light' : 'dark');
+      var btnText = document.getElementById('theme-toggle-text');
+      var btnIcon = document.getElementById('theme-toggle-icon');
+      if (btnText && btnIcon) {
+        btnText.textContent = isLight ? 'Dark Mode' : 'Light Mode';
+        btnIcon.textContent = isLight ? '🌙' : '☀️';
+      }
+    }
+    // Restore theme on load
+    if (localStorage.getItem('catalog_theme') === 'light') {
+      document.addEventListener('DOMContentLoaded', function() {
+        document.body.classList.add('light-mode');
+        var btnText = document.getElementById('theme-toggle-text');
+        var btnIcon = document.getElementById('theme-toggle-icon');
+        if (btnText && btnIcon) {
+          btnText.textContent = 'Dark Mode';
+          btnIcon.textContent = '🌙';
+        }
+      });
     }
   </script>
 </head>
@@ -88,6 +109,9 @@
       </div>
 
       <div class="header-actions">
+        <button class="btn btn-secondary" id="btn-theme-toggle" onclick="toggleTheme()" title="Toggle Light/Dark Theme">
+          <span class="icon" id="theme-toggle-icon">☀️</span> <span id="theme-toggle-text">Light Mode</span>
+        </button>
         <button class="btn btn-secondary" id="btn-webhook-modal" onclick="openWebhookModal()" style="background: rgba(99, 102, 241, 0.15); border-color: var(--primary); color: #a5b4fc; font-weight: 700;">
           <span class="icon">⚡</span> Sheet Webhook Sync
         </button>
@@ -120,7 +144,7 @@
     <!-- Main Container -->
     <main class="main-container">
 
-      <!-- Metrics KPI Dashboard: Mapped and verified, Neeed to Map, Mapped, Not Available -->
+      <!-- Metrics KPI Dashboard: Mapped and verified, Need to Validate, Neeed to Map, Mapped, Not Available -->
       <section class="kpi-grid">
         <div class="kpi-card">
           <div class="kpi-title">Total Supplier Items</div>
@@ -130,17 +154,17 @@
         <div class="kpi-card verified">
           <div class="kpi-title">Mapped and verified</div>
           <div class="kpi-value" id="kpi-approved">0</div>
-          <div class="kpi-subtitle">Completed & Verified Mappings</div>
+          <div class="kpi-subtitle">Completed & Locked Mappings</div>
+        </div>
+        <div class="kpi-card validate">
+          <div class="kpi-title">Need to Validate</div>
+          <div class="kpi-value" id="kpi-validate">0</div>
+          <div class="kpi-subtitle">AI Matches Awaiting Validation</div>
         </div>
         <div class="kpi-card pending">
           <div class="kpi-title">Neeed to Map</div>
           <div class="kpi-value" id="kpi-pending">0</div>
           <div class="kpi-subtitle">Items Awaiting Mapping</div>
-        </div>
-        <div class="kpi-card success">
-          <div class="kpi-title">Mapped</div>
-          <div class="kpi-value" id="kpi-mapped">0</div>
-          <div class="kpi-subtitle">AI & Auto-Mapped Items</div>
         </div>
         <div class="kpi-card not-avail">
           <div class="kpi-title">Not Available</div>
@@ -154,8 +178,8 @@
         <div class="filter-tabs">
           <button class="tab-btn active" data-filter="ALL">All Items (<span id="tab-count-all">0</span>)</button>
           <button class="tab-btn" data-filter="VERIFIED">Mapped and verified (<span id="tab-count-verified">0</span>)</button>
+          <button class="tab-btn" data-filter="VALIDATE">Need to Validate (<span id="tab-count-validate">0</span>)</button>
           <button class="tab-btn" data-filter="NEED_MAP">Neeed to Map (<span id="tab-count-pending">0</span>)</button>
-          <button class="tab-btn" data-filter="MAPPED">Mapped (<span id="tab-count-mapped">0</span>)</button>
           <button class="tab-btn" data-filter="NOT_AVAILABLE">Not Available (<span id="tab-count-notavail">0</span>)</button>
         </div>
 
