@@ -155,55 +155,59 @@
   <div id="app">
     <!-- Top Header Navigation -->
     <header class="navbar">
-      <div class="brand">
-        <div class="logo-icon">✨</div>
-        <div>
-          <h1>Catalog AI Mapper</h1>
-          <p class="subtitle">Google Sheets & Supabase Master Database Synchronizer</p>
+      <div class="navbar-top-row">
+        <div class="brand">
+          <div class="logo-icon">✨</div>
+          <div>
+            <h1>Catalog AI Mapper</h1>
+            <p class="subtitle">Google Sheets & Supabase Master Database Synchronizer</p>
+          </div>
         </div>
-      </div>
-      
-      <div class="system-status">
-        <div class="status-pill connected" title="Connected to Supabase Project rhxrtsjocqizhxqhbzgu">
-          <span class="status-dot"></span>
-          <span>Supabase: <strong>June_Data</strong> (743,963 products)</span>
-        </div>
-        <div class="status-pill active" id="sheet-status-pill" style="cursor: pointer;" onclick="forceFetchLiveGoogleSheet()" title="Click to fetch live rows directly from Google Sheet Sheet4">
-          <span class="status-dot"></span>
-          <span id="sheet-name-text">Google Sheet: <strong id="header-sheet-name">Sheet4</strong> <span id="sheet-lock-badge" style="color: #34d399; font-size: 0.8rem; margin-left: 4px;"></span></span>
-          <span style="margin-left: 6px; font-size: 0.85rem; opacity: 0.8;" onclick="event.stopPropagation(); openSheetConfigModal();" title="Configure Google Sheet Link & Name">⚙️</span>
-        </div>
-        <div class="status-pill active" style="background: rgba(99, 102, 241, 0.18); border-color: rgba(99, 102, 241, 0.4);" title="Enter your Name or Email to tag all your mapping decisions">
-          <span style="font-size: 0.82rem; color: #a5b4fc; font-weight: 700;">👤 Mapper:</span>
-          <input type="text" id="mapper-name-input" oninput="updateMapperName(this.value)" placeholder="Your Name / Email..." style="background: transparent; border: none; color: #ffffff; font-weight: 700; font-size: 0.82rem; outline: none; width: 140px;">
+        
+        <div class="system-status">
+          <div class="status-pill connected" title="Connected to Supabase Project rhxrtsjocqizhxqhbzgu">
+            <span class="status-dot"></span>
+            <span>Supabase: <strong>June_Data</strong> (743k)</span>
+          </div>
+          <div class="status-pill active" id="sheet-status-pill" style="cursor: pointer;" onclick="forceFetchLiveGoogleSheet()" title="Click to fetch live rows directly from Google Sheet Sheet4">
+            <span class="status-dot"></span>
+            <span id="sheet-name-text">Google Sheet: <strong id="header-sheet-name">Sheet4</strong> <span id="sheet-lock-badge" style="color: #34d399; font-size: 0.8rem; margin-left: 4px;"></span></span>
+            <span style="margin-left: 6px; font-size: 0.85rem; opacity: 0.8;" onclick="event.stopPropagation(); openSheetConfigModal();" title="Configure Google Sheet Link & Name">⚙️</span>
+          </div>
+          <div class="status-pill active mapper-pill" style="background: rgba(99, 102, 241, 0.22); border-color: rgba(99, 102, 241, 0.5); box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);" title="Enter your Name or Email to tag all your mapping decisions">
+            <span style="font-size: 0.82rem; color: #a5b4fc; font-weight: 700;">👤 Mapper:</span>
+            <input type="text" id="mapper-name-input" oninput="updateMapperName(this.value)" placeholder="Your Name / Email..." style="background: transparent; border: none; color: #ffffff; font-weight: 700; font-size: 0.82rem; outline: none; width: 140px;">
+          </div>
         </div>
       </div>
 
-      <div class="header-actions">
-        <button class="btn btn-secondary" id="btn-refresh-sheet" onclick="forceFetchLiveGoogleSheet()" title="Fetch fresh live rows directly from Google Sheet Sheet4">
-          <span class="icon">🔄</span> Refresh Sheet Data
-        </button>
-        <button class="btn btn-secondary" id="btn-lock-sheet" onclick="toggleLockSheetData()" title="Lock Sheet Data so page reloads do not wipe state">
-          <span id="lock-icon">🔓</span> <span id="lock-text">Lock Sheet Data</span>
-        </button>
-        <button class="btn btn-secondary" id="btn-theme-toggle" onclick="toggleTheme()" title="Toggle Light/Dark Theme">
-          <span class="icon" id="theme-toggle-icon">☀️</span> <span id="theme-toggle-text">Light Mode</span>
-        </button>
-        <button class="btn btn-secondary" id="btn-webhook-modal" onclick="openWebhookModal()" style="background: rgba(99, 102, 241, 0.15); border-color: var(--primary); color: #a5b4fc; font-weight: 700;">
-          <span class="icon">⚡</span> Sheet Webhook Sync
-        </button>
-        <button class="btn btn-secondary" id="btn-logic-modal" onclick="openModal('logic-modal')">
-          <span class="icon">⚙️</span> Custom Logic Rules
-        </button>
-        <button class="btn btn-secondary" id="btn-import-modal" onclick="openModal('import-modal')">
-          <span class="icon">📂</span> Import Sheet / CSV
-        </button>
-        <button class="btn btn-secondary" id="btn-export-modal" onclick="openExportModal()">
-          <span class="icon">📥</span> Export Mapped Data
-        </button>
-        <button class="btn btn-primary" id="btn-run-ai-match" onclick="startBatchMatchingProcess()">
-          <span class="icon">⚡</span> Run AI Batch Match
-        </button>
+      <div class="navbar-bottom-row">
+        <div class="header-actions">
+          <button class="btn btn-secondary" id="btn-refresh-sheet" onclick="forceFetchLiveGoogleSheet()" title="Fetch fresh live rows directly from Google Sheet Sheet4">
+            <span class="icon">🔄</span> Refresh Sheet
+          </button>
+          <button class="btn btn-secondary" id="btn-lock-sheet" onclick="toggleLockSheetData()" title="Lock Sheet Data so page reloads do not wipe state">
+            <span id="lock-icon">🔓</span> <span id="lock-text">Lock Sheet</span>
+          </button>
+          <button class="btn btn-secondary" id="btn-theme-toggle" onclick="toggleTheme()" title="Toggle Light/Dark Theme">
+            <span class="icon" id="theme-toggle-icon">☀️</span> <span id="theme-toggle-text">Light Mode</span>
+          </button>
+          <button class="btn btn-secondary" id="btn-webhook-modal" onclick="openWebhookModal()" style="background: rgba(99, 102, 241, 0.15); border-color: var(--primary); color: #a5b4fc; font-weight: 700;">
+            <span class="icon">⚡</span> Webhook Sync
+          </button>
+          <button class="btn btn-secondary" id="btn-logic-modal" onclick="openModal('logic-modal')">
+            <span class="icon">⚙️</span> Custom Logic Rules
+          </button>
+          <button class="btn btn-secondary" id="btn-import-modal" onclick="openModal('import-modal')">
+            <span class="icon">📂</span> Import Sheet / CSV
+          </button>
+          <button class="btn btn-secondary" id="btn-export-modal" onclick="openExportModal()">
+            <span class="icon">📥</span> Export Mapped Data
+          </button>
+          <button class="btn btn-primary" id="btn-run-ai-match" onclick="startBatchMatchingProcess()">
+            <span class="icon">⚡</span> Run AI Batch Match
+          </button>
+        </div>
       </div>
     </header>
 

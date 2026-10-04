@@ -108,18 +108,37 @@ body {
 /* Navbar Header */
 .navbar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 24px;
+  flex-direction: column;
+  padding: 12px 24px;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
   backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
   z-index: 100;
-  gap: 14px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
+  gap: 10px;
+}
+
+.navbar-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.navbar-bottom-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 8px;
+}
+
+body.light-mode .navbar-bottom-row {
+  border-top-color: rgba(0, 0, 0, 0.08);
 }
 
 .brand {
@@ -143,7 +162,7 @@ body {
 }
 
 .brand h1 {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text-main);
@@ -163,7 +182,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .status-pill {
@@ -204,7 +223,8 @@ body.light-mode .status-pill {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+  flex-wrap: wrap;
+  width: 100%;
 }
 
 /* Buttons */
