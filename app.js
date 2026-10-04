@@ -26,7 +26,7 @@ const SAMPLE_SUPPLIER_ITEMS = [
   { ITEMCODE: '000020', ITEMNAME: 'PODOWART PAINT', PACKING: '10ML', CONTENT: 'ALOEVERA+BENZOIC ACID+PODOPHYLLUM RESIN', COMPANYNAME: 'INVIDA INDIA PVT LIMITED', SALERATE: '222.86', MRP: '292.5', 'RXP Code': 'DRS243475', 'RXP Name': 'Podowart Paint', 'RXP Pack Size': 'bottle of 10 ml paint', Status: 'Mapped and verified' }
 ];
 
-// Persistent Dual-Redundancy Storage Manager (localStorage + IndexedDB)
+// Persistent Storage Manager (IndexedDB + localStorage fallback)
 const StorageManager = {
   dbName: 'CatalogMapperDB',
   storeName: 'catalog_state',
@@ -50,26 +50,59 @@ const StorageManager = {
       localStorage.setItem('catalog_webhook_url', webhookUrl);
     }
     if (items && Array.isArray(items) && items.length > 0) {
-      // 1. Double-Redundancy Save to localStorage
-      try {
-        localStorage.setItem('catalog_saved_items', JSON.stringify(items));
-      } catch (err) {
-        console.warn('localStorage save warning:', err);
-      }
-      // 2. Double-Redundancy Save to IndexedDB
+      // 1. Primary Save: IndexedDB (handles 100MB+ without browser quota errors)
       try {
         const db = await this.openDB();
         const tx = db.transaction(this.storeName, 'readwrite');
         const store = tx.objectStore(this.storeName);
         store.put(items, 'saved_items');
       } catch (e) {
-        console.warn('IndexedDB save warning:', e);
+        console.warn('IndexedDB save error:', e);
+      }
+
+      // 2. Secondary Save: localStorage (with lean fallback if quota exceeded)
+      try {
+        localStorage.setItem('catalog_saved_items', JSON.stringify(items));
+      } catch (err) {
+        try {
+          // Quota exceeded for full string; save lean items with top 3 candidates only
+          const leanItems = items.map(i => ({
+            id: i.id,
+            ITEMCODE: i.ITEMCODE,
+            ITEMNAME: i.ITEMNAME,
+            PACKING: i.PACKING,
+            CONTENT: i.CONTENT,
+            COMPANYNAME: i.COMPANYNAME,
+            SALERATE: i.SALERATE,
+            MRP: i.MRP,
+            'RXP Code': i['RXP Code'],
+            'RXP Name': i['RXP Name'],
+            'RXP Pack Size': i['RXP Pack Size'],
+            Status: i.Status,
+            top_match: i.top_match,
+            candidates: (i.candidates || []).slice(0, 3)
+          }));
+          localStorage.setItem('catalog_saved_items', JSON.stringify(leanItems));
+        } catch (e2) {}
       }
     }
   },
 
   loadState: async function() {
-    // 1. Check localStorage first for instant synchronous reload safety
+    // 1. Try IndexedDB first (contains complete candidate state)
+    try {
+      const db = await this.openDB();
+      const idbItems = await new Promise((resolve) => {
+        const tx = db.transaction(this.storeName, 'readonly');
+        const store = tx.objectStore(this.storeName);
+        const req = store.get('saved_items');
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      });
+      if (Array.isArray(idbItems) && idbItems.length > 0) return idbItems;
+    } catch (e) {}
+
+    // 2. Fallback to localStorage
     try {
       const raw = localStorage.getItem('catalog_saved_items');
       if (raw) {
@@ -78,23 +111,7 @@ const StorageManager = {
       }
     } catch (e) {}
 
-    // 2. Fallback to IndexedDB
-    try {
-      const db = await this.openDB();
-      return new Promise((resolve) => {
-        const tx = db.transaction(this.storeName, 'readonly');
-        const store = tx.objectStore(this.storeName);
-        const req = store.get('saved_items');
-        req.onsuccess = () => {
-          const res = req.result;
-          if (Array.isArray(res) && res.length > 0) resolve(res);
-          else resolve(null);
-        };
-        req.onerror = () => resolve(null);
-      });
-    } catch (e) {
-      return null;
-    }
+    return null;
   }
 };
 
@@ -162,19 +179,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   initEventListeners();
   window.updateWebhookStatusUI();
 
-  // Load saved state from storage
+  // 1. Try loading saved state
   const savedItems = await StorageManager.loadState();
   if (savedItems && Array.isArray(savedItems) && savedItems.length > 0) {
     state.items = savedItems;
     updateKPICounters();
     renderTable();
-    console.log(`Loaded ${savedItems.length} items from saved state.`);
-    // IMPORTANT: Do NOT run autoFetchGoogleSheetData(true) if saved items exist!
-    // This locks the state so refreshes preserve matches and decisions cleanly.
+    console.log(`Loaded ${savedItems.length} items from persistent state.`);
   } else {
-    // Cold start: auto-fetch live Google Sheet data
-    const fetched = await window.autoFetchGoogleSheetData(false);
-    if (!fetched) loadSampleData();
+    // 2. Cold start: Load sample data immediately so UI NEVER displays 0 items!
+    loadSampleData();
+    // 3. Attempt silent background sync from live Google Sheet if available
+    window.autoFetchGoogleSheetData(true);
   }
 });
 

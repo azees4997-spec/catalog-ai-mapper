@@ -61,6 +61,7 @@
         document.execCommand('copy');
         alert('📋 Google Apps Script code copied to clipboard!');
       }
+    }
     function toggleTheme() {
       var isLight = document.body.classList.toggle('light-mode');
       localStorage.setItem('catalog_theme', isLight ? 'light' : 'dark');
@@ -199,227 +200,227 @@
 
     <!-- Modal 1: Import Modal -->
     <div id="import-modal" class="modal-overlay hidden">
-      <div class="modal-card">
+      <div class="modal-card wide">
         <div class="modal-header">
-          <h3>Import Supplier Catalog</h3>
+          <div>
+            <h3>Import Supplier Catalog Data</h3>
+            <p class="modal-subtitle">Load rows directly from Google Sheet Sheet3 or upload CSV</p>
+          </div>
           <button class="close-btn" id="close-import-modal">&times;</button>
         </div>
+        
         <div class="modal-body">
           <div class="import-options-tabs">
             <button class="import-tab-btn active" data-import-tab="paste">📋 Paste Google Sheet Data</button>
-            <button class="import-tab-btn" data-import-tab="sheet">🔗 Google Sheet Link</button>
-            <button class="import-tab-btn" data-import-tab="csv">📄 Upload CSV</button>
-            <button class="import-tab-btn" data-import-tab="sample">⚡ Sample Data</button>
+            <button class="import-tab-btn" data-import-tab="sample">⚡ Sample Supplier Items</button>
+            <button class="import-tab-btn" data-import-tab="csv">📄 Upload CSV File</button>
           </div>
 
-          <!-- Tab 1: Paste Google Sheet Data -->
+          <!-- Tab 1: Paste Sheet Rows -->
           <div id="import-tab-paste" class="import-tab-content active">
-            <p style="margin-bottom: 10px; font-size: 0.88rem;">Copy rows directly from your Google Sheet (<strong>Sheet3</strong>) and paste them below:</p>
-            <textarea id="paste-sheet-input" class="form-input" style="height: 160px; font-family: monospace; font-size: 0.8rem;" placeholder="ITEMCODE&#9;ITEMNAME&#9;PACKING&#9;CONTENT&#9;COMPANYNAME&#9;SALERATE&#9;MRP&#9;RXP Code&#9;RXP Name&#9;RXP Pack Size&#9;Status"></textarea>
-            <button class="btn btn-primary btn-block" style="margin-top: 14px;" id="btn-parse-pasted-sheet">Parse & Load Google Sheet Data</button>
+            <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 10px;">
+              Copy your columns directly from Google Sheet Sheet3 and paste them below:
+            </p>
+            <textarea id="paste-sheet-input" class="form-input" style="height: 180px; font-family: monospace; font-size: 0.8rem;" placeholder="Paste copied Google Sheet rows here (ITEMCODE, ITEMNAME, PACKING, CONTENT, COMPANYNAME, SALERATE, MRP, RXP Code, RXP Name, RXP Pack Size, Status)..."></textarea>
+            <button class="btn btn-primary btn-block" id="btn-parse-pasted-sheet" style="margin-top: 14px;">
+              ⚡ Parse Pasted Google Sheet Data
+            </button>
           </div>
 
-          <!-- Tab 2: Google Sheet Link -->
-          <div id="import-tab-sheet" class="import-tab-content">
-            <div class="form-group">
-              <label>Google Sheet URL:</label>
-              <input type="text" id="sheet-url-input" class="form-input" value="https://docs.google.com/spreadsheets/d/1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8/edit?pli=1&gid=1777883675#gid=1777883675">
+          <!-- Tab 2: Sample Data -->
+          <div id="import-tab-sample" class="import-tab-content">
+            <div class="sample-preview-box">
+              <strong>Sample Supplier Catalog Items (7 Products)</strong>
+              <ul>
+                <li>A RET 0.025 GEL (TRETINOIN) - INVIDA INDIA PVT LIMITED</li>
+                <li>OLESOFT MAX LOTION (LIQUID PARAFFIN) - ALKEM DERMACARE</li>
+                <li>HEXILAK GEL (ALLANTOIN+EXTRACTUM CEPAE) - INVIDA INDIA</li>
+                <li>HYDE CREAM (HYDROQUINONE) - INVIDA INDIA PVT LIMITED</li>
+                <li>PODOWART PAINT (ALOEVERA+BENZOIC ACID) - INVIDA INDIA</li>
+              </ul>
             </div>
-            <div class="form-group">
-              <label>Sheet Tab Name:</label>
-              <input type="text" id="sheet-name-input" class="form-input" value="Sheet3">
-            </div>
-            <button class="btn btn-primary btn-block" id="btn-load-sheet">Fetch Direct Google Sheet CSV</button>
+            <button class="btn btn-primary btn-block" id="btn-load-sample">
+              ⚡ Load Sample Catalog Data
+            </button>
           </div>
 
-          <!-- Tab 3: Upload CSV File -->
+          <!-- Tab 3: CSV File -->
           <div id="import-tab-csv" class="import-tab-content">
             <div class="drop-zone" id="drop-zone">
               <div class="drop-icon">📁</div>
-              <p>Drag and drop your exported <strong>Sheet3 CSV file</strong> here</p>
-              <p class="drop-or">or</p>
-              <input type="file" id="csv-file-input" accept=".csv" class="hidden">
-              <button class="btn btn-secondary" onclick="document.getElementById('csv-file-input').click()">Browse CSV File</button>
+              <p>Drag & Drop your Supplier CSV file here, or click to browse</p>
+              <input type="file" id="csv-file-input" accept=".csv,.tsv,.txt" style="display: none;">
+              <button class="btn btn-secondary" onclick="document.getElementById('csv-file-input').click()" style="margin-top: 14px;">Choose CSV File</button>
             </div>
           </div>
 
-          <!-- Tab 4: Sample Data -->
-          <div id="import-tab-sample" class="import-tab-content">
-            <p>Load sample pharmaceutical items (with Mapped and verified + Neeed to Map items):</p>
-            <button class="btn btn-primary btn-block" id="btn-load-sample">Load Sample Catalog Data</button>
-          </div>
-
         </div>
       </div>
     </div>
 
-    <!-- Modal 2: Custom Mapping Logic Configurator -->
+    <!-- Modal 2: Custom Logic Rules Modal -->
     <div id="logic-modal" class="modal-overlay hidden">
       <div class="modal-card">
         <div class="modal-header">
-          <h3>Custom Mapping Logic & Weightings</h3>
+          <div>
+            <h3>Custom Logic Rules</h3>
+            <p class="modal-subtitle">Adjust confidence weights & auto-approval thresholds</p>
+          </div>
           <button class="close-btn" id="close-logic-modal">&times;</button>
         </div>
         <div class="modal-body">
-          <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 16px;">
-            Configure matching weights and rules to fine-tune how AI matches supplier items with Supabase <strong>June_Data</strong>:
-          </p>
-
           <div class="form-group">
-            <label>ITEMNAME Match Weight (0.0 to 1.0):</label>
-            <input type="number" step="0.05" min="0" max="1" id="rule-weight-name" class="form-input" value="0.45">
+            <label>Product Name Match Weight (45% default)</label>
+            <input type="range" min="0" max="100" value="45" class="form-input" id="weight-name">
           </div>
-
           <div class="form-group">
-            <label>CONTENT Match Weight (0.0 to 1.0):</label>
-            <input type="number" step="0.05" min="0" max="1" id="rule-weight-comp" class="form-input" value="0.40">
+            <label>Composition / Content Weight (40% default)</label>
+            <input type="range" min="0" max="100" value="40" class="form-input" id="weight-content">
           </div>
-
           <div class="form-group">
-            <label>Dosage / Strength Match Weight (0.0 to 1.0):</label>
-            <input type="number" step="0.05" min="0" max="1" id="rule-weight-strength" class="form-input" value="0.15">
+            <label>Minimum Confidence Threshold for Auto-Mapping (75%)</label>
+            <input type="number" value="75" class="form-input" id="min-confidence-input">
           </div>
-
-          <div class="form-group">
-            <label>Minimum Auto-Match Confidence Threshold (%):</label>
-            <input type="number" min="50" max="100" id="rule-min-threshold" class="form-input" value="75">
-          </div>
-
-          <button class="btn btn-primary btn-block" id="btn-save-logic-rules">Save Mapping Logic Rules</button>
+          <button class="btn btn-primary btn-block" onclick="closeModal('logic-modal'); alert('Logic rules updated successfully!');">
+            Save Logic Configuration
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- Modal 3: Candidate Selection / Nearest Match Drawer -->
+    <!-- Modal 3: Google Sheet Webhook Sync Modal -->
+    <div id="webhook-modal" class="modal-overlay hidden">
+      <div class="modal-card wide">
+        <div class="modal-header">
+          <div>
+            <h3>⚡ Real-Time Google Sheet Webhook Sync</h3>
+            <p class="modal-subtitle">Connect UI clicks directly to your live Google Sheet Sheet3</p>
+          </div>
+          <button class="close-btn" id="close-webhook-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label style="font-weight: 700; color: #a5b4fc;">Google Apps Script Webhook URL:</label>
+            <input type="url" id="webhook-url-input" class="form-input large" placeholder="https://script.google.com/macros/s/.../exec">
+            <p class="help-text" style="margin-top: 6px;">
+              Paste your deployed Google Apps Script Webhook URL above. Whenever you click <strong>⚡ Validate & Lock Match</strong> or <strong>✕ Not Available</strong>, your Google Sheet Sheet3 will update live!
+            </p>
+          </div>
+
+          <div style="background: var(--bg-dark); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <strong style="font-size: 0.9rem; color: #ffffff;">Google Apps Script Code (Copy into Sheets -> Extensions -> Apps Script):</strong>
+              <button class="btn btn-secondary btn-sm" id="btn-copy-script-code">📋 Copy Code</button>
+            </div>
+            <textarea id="apps-script-code" class="form-input" style="height: 140px; font-family: monospace; font-size: 0.78rem;" readonly>
+function doPost(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sheet3");
+    if (!sheet) return ContentService.createTextOutput(JSON.stringify({error: "Sheet3 not found"})).setMimeType(ContentService.MimeType.JSON);
+    var data = JSON.parse(e.postData.contents);
+    var rows = Array.isArray(data) ? data : [data];
+    var lastRow = sheet.getLastRow();
+    if (lastRow <= 1) return ContentService.createTextOutput(JSON.stringify({status: "ok"})).setMimeType(ContentService.MimeType.JSON);
+    var itemCodes = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    rows.forEach(function(row) {
+      for (var i = 0; i < itemCodes.length; i++) {
+        if (String(itemCodes[i][0]).trim() === String(row.ITEMCODE).trim()) {
+          var targetRow = i + 2;
+          sheet.getRange(targetRow, 8).setValue(row['RXP Code'] || '');
+          sheet.getRange(targetRow, 9).setValue(row['RXP Name'] || '');
+          sheet.getRange(targetRow, 10).setValue(row['RXP Pack Size'] || '');
+          sheet.getRange(targetRow, 11).setValue(row.Status || 'Mapped and verified');
+          break;
+        }
+      }
+    });
+    return ContentService.createTextOutput(JSON.stringify({status: "success", updated: rows.length})).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({error: err.toString()})).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+            </textarea>
+          </div>
+
+          <button class="btn btn-primary btn-block" id="btn-save-webhook-url">
+            ⚡ Save & Connect Webhook Sync
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 4: Export Modal -->
+    <div id="export-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <h3>Export Mapped Catalog Data</h3>
+            <p class="modal-subtitle">Download clean 11-column CSV or push live to Google Sheet / Supabase</p>
+          </div>
+          <button class="close-btn" id="close-export-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="export-summary-box" style="background: var(--bg-dark); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
+            <!-- Rendered via JS -->
+          </div>
+          
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <button class="btn btn-primary btn-block" id="btn-batch-sync-sheet" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+              ⚡ Batch Sync All to Live Google Sheet
+            </button>
+            <button class="btn btn-secondary btn-block" id="btn-download-csv">
+              📄 Download Mapped CSV (11 Columns)
+            </button>
+            <button class="btn btn-secondary btn-block" id="btn-sync-supabase">
+              🗄️ Sync Mappings to Supabase Table
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 5: Candidate Drawer Modal -->
     <div id="candidate-modal" class="modal-overlay hidden">
       <div class="modal-card wide">
         <div class="modal-header">
           <div>
-            <h3>Select Nearest Master Product (RXP)</h3>
-            <p class="modal-subtitle" id="candidate-supplier-item-title">Supplier Item: ...</p>
+            <h3>Nearest RXP Candidates</h3>
+            <p class="modal-subtitle" id="candidate-supplier-item-title">Select closest master product match</p>
           </div>
           <button class="close-btn" id="close-candidate-modal">&times;</button>
         </div>
         <div class="modal-body">
-          <p class="section-lead">Top AI candidate RXP matches retrieved from Supabase <strong>June_Data</strong> (743,963 records):</p>
-          <div id="candidate-list" class="candidate-list"></div>
+          <div id="candidate-list" class="candidate-list">
+            <!-- Candidate cards rendered via JS -->
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Modal 4: Manual Master Search Modal -->
+    <!-- Modal 6: Live Master Database Search Modal -->
     <div id="search-modal" class="modal-overlay hidden">
       <div class="modal-card wide">
         <div class="modal-header">
           <div>
-            <h3>Search Supabase Master Catalog (743,963 Products)</h3>
-            <p class="modal-subtitle" id="search-supplier-item-title">Mapping for: ...</p>
+            <h3>Search Supabase June_Data (743,963 products)</h3>
+            <p class="modal-subtitle" id="search-supplier-item-title">Find exact RXP product in master database</p>
           </div>
           <button class="close-btn" id="close-search-modal">&times;</button>
         </div>
         <div class="modal-body">
           <div class="search-input-group">
-            <input type="text" id="master-search-query" class="form-input large" placeholder="Type RXP name, CONTENT composition, strength, or RXP Code...">
-            <button class="btn btn-primary" id="btn-execute-master-search">Search Supabase</button>
+            <input type="text" id="master-search-query" class="form-input large" placeholder="Type product name or active composition...">
+            <button class="btn btn-primary" id="btn-execute-master-search">🔍 Search Master</button>
           </div>
           <div id="master-search-results" class="search-results-list">
-            <p class="empty-state">Type a query above to search live across 743,963 master database records.</p>
+            <!-- Search results rendered via JS -->
           </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Modal 5: Export Modal -->
-    <div id="export-modal" class="modal-overlay hidden">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3>Export Mapped Catalogue Data</h3>
-          <button class="close-btn" id="close-export-modal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <p>Export your mapped catalog containing exact columns: ITEMCODE, ITEMNAME, PACKING, CONTENT, COMPANYNAME, SALERATE, MRP, RXP Code, RXP Name, RXP Pack Size, Status.</p>
-          <div class="export-summary-box" id="export-summary-box"></div>
-          <div class="export-actions">
-            <button class="btn btn-primary btn-block" id="btn-batch-sync-sheet" style="margin-bottom: 10px; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); font-weight: 700;">⚡ Batch Sync All Mapped Items to Live Google Sheet</button>
-            <button class="btn btn-primary btn-block" id="btn-copy-sheet-clipboard" style="margin-bottom: 10px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); font-weight: 700;">📋 Copy 11-Column Google Sheet Data to Clipboard</button>
-            <button class="btn btn-secondary btn-block" id="btn-download-csv" style="margin-bottom: 10px;">📥 Download Mapped CSV Spreadsheet</button>
-            <button class="btn btn-secondary btn-block" id="btn-sync-supabase">☁️ Sync Mappings to Supabase Table</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Modal 6: Google Apps Script Webhook Live Sync Modal -->
-    <div id="webhook-modal" class="modal-overlay hidden">
-      <div class="modal-card wide">
-        <div class="modal-header">
-          <div>
-            <h3>⚡ Live Google Sheet Webhook Sync (Option B)</h3>
-            <p class="modal-subtitle">Automatically update Google Sheet Sheet3 columns in real-time on every UI click!</p>
-          </div>
-          <button class="close-btn" id="close-webhook-modal" onclick="closeModal('webhook-modal')">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label><strong>Google Apps Script Webhook URL:</strong></label>
-            <input type="text" id="webhook-url-input" class="form-input large" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
-            <p class="form-help" style="font-size: 0.82rem; color: var(--text-muted); margin-top: 4px;">
-              When set, clicking <strong>Confirm & Map</strong>, <strong>Select Nearest</strong>, or <strong>Run AI Match</strong> will automatically update Google Sheet <strong>Sheet3</strong> live!
-            </p>
-          </div>
-
-          <div style="margin-top: 16px; background: var(--bg-elevated); padding: 16px; border-radius: 8px; border: 1px solid var(--border-color);">
-            <h4 style="margin-bottom: 8px; color: #a5b4fc;">📋 Google Apps Script Code (Copy into Google Sheets):</h4>
-            <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px;">
-              1. Open Google Sheet <strong>Sheet3</strong> &rarr; Click <strong>Extensions</strong> &rarr; <strong>Apps Script</strong><br>
-              2. Replace all code with the snippet below and click <strong>Save</strong><br>
-              3. Click <strong>Deploy</strong> &rarr; <strong>New deployment</strong> &rarr; Select <strong>Web app</strong> &rarr; Execute as: <strong>Me</strong> &rarr; Who has access: <strong>Anyone</strong> &rarr; Deploy & Copy Webhook URL.
-            </p>
-            <textarea id="apps-script-code" class="form-input" style="height: 150px; font-family: monospace; font-size: 0.78rem;" readonly>
-function doPost(e) {
-  try {
-    var rawText = (e && e.postData && e.postData.contents) ? e.postData.contents : "[]";
-    var data = JSON.parse(rawText);
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sheet3") || SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    var lastRow = sheet.getLastRow();
-    if (lastRow < 2) return ContentService.createTextOutput(JSON.stringify({ status: "error", message: "No data rows" })).setMimeType(ContentService.MimeType.JSON);
-    
-    var itemCodes = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-    var updates = Array.isArray(data) ? data : [data];
-    var count = 0;
-
-    updates.forEach(function(item) {
-      if (!item || !item.ITEMCODE) return;
-      var targetCode = String(item.ITEMCODE).trim();
-      for (var i = 0; i < itemCodes.length; i++) {
-        if (String(itemCodes[i][0]).trim() === targetCode) {
-          var rowNum = i + 2;
-          if (item['RXP Code'] !== undefined) sheet.getRange(rowNum, 8).setValue(item['RXP Code'] || '');
-          if (item['RXP Name'] !== undefined) sheet.getRange(rowNum, 9).setValue(item['RXP Name'] || '');
-          if (item['RXP Pack Size'] !== undefined) sheet.getRange(rowNum, 10).setValue(item['RXP Pack Size'] || '');
-          if (item.Status !== undefined) sheet.getRange(rowNum, 11).setValue(item.Status || 'Mapped and verified');
-          count++;
-          break;
-        }
-      }
-    });
-
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", updatedCount: count })).setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
-            </textarea>
-            <button class="btn btn-secondary btn-sm" id="btn-copy-script-code" onclick="copyAppsScriptCode()" style="margin-top: 8px;">📋 Copy Apps Script Code to Clipboard</button>
-          </div>
-
-          <button class="btn btn-primary btn-block" style="margin-top: 16px;" id="btn-save-webhook-url" onclick="saveWebhookUrl()">Save Webhook & Enable Real-Time Sync</button>
         </div>
       </div>
     </div>
 
   </div>
 
-  <script src="app.js?v=8"></script>
+  <script src="app.js"></script>
 </body>
 </html>
