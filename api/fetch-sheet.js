@@ -26,7 +26,7 @@ function fetchUrlSmart(targetUrl, maxRedirects = 5) {
 
 function extractSheetIdAndGid(rawUrl) {
   let sheetId = '1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8';
-  let gid = '1777883675';
+  let gid = '691679338'; // Sheet4 default GID
 
   if (rawUrl) {
     const idMatch = rawUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);

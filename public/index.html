@@ -28,8 +28,8 @@
     function openSheetConfigModal() {
       var urlInput = document.getElementById('sheet-url-config-input');
       var nameInput = document.getElementById('sheet-name-config-input');
-      if (urlInput && window.state) urlInput.value = window.state.sheetUrl || '';
-      if (nameInput && window.state) nameInput.value = window.state.sheetName || 'Sheet3';
+      if (urlInput && window.state) urlInput.value = window.state.sheetUrl || 'https://docs.google.com/spreadsheets/d/1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8/edit?gid=691679338#gid=691679338';
+      if (nameInput && window.state) nameInput.value = window.state.sheetName || 'Sheet4';
       openModal('sheet-config-modal');
     }
     function openWebhookModal() {
@@ -54,7 +54,7 @@
       if (window.state) window.state.webhookUrl = url;
       localStorage.setItem('catalog_webhook_url', url);
       closeModal('webhook-modal');
-      alert('⚡ Google Sheet Webhook Sync enabled!\n\nYour UI clicks will now update Google Sheet in real-time.');
+      alert('⚡ Google Sheet Webhook Sync enabled!\n\nYour UI stage transitions will now sync directly to Sheet4 in real-time.');
     }
     function copyAppsScriptCode() {
       var code = document.getElementById('apps-script-code').value;
@@ -112,7 +112,7 @@
         </div>
         <div class="status-pill active" id="sheet-status-pill" style="cursor: pointer;" onclick="openSheetConfigModal()" title="Click to configure Google Sheet Link and Sheet Name">
           <span class="status-dot"></span>
-          <span id="sheet-name-text">Google Sheet: <strong id="header-sheet-name">Sheet3</strong> <span id="sheet-lock-badge" style="color: #34d399; font-size: 0.8rem; margin-left: 4px;"></span></span>
+          <span id="sheet-name-text">Google Sheet: <strong id="header-sheet-name">Sheet4</strong> <span id="sheet-lock-badge" style="color: #34d399; font-size: 0.8rem; margin-left: 4px;"></span></span>
         </div>
       </div>
 
@@ -155,27 +155,27 @@
     <!-- Main Container -->
     <main class="main-container">
 
-      <!-- Metrics KPI Dashboard: Mapped and verified, Need to Validate, Neeed to Map, Mapped, Not Available -->
+      <!-- Metrics KPI Dashboard: Total Supplier Items, AI Mapped, Need to Validate, Mapped and verified, Not Available -->
       <section class="kpi-grid">
         <div class="kpi-card">
           <div class="kpi-title">Total Supplier Items</div>
           <div class="kpi-value" id="kpi-total">0</div>
-          <div class="kpi-subtitle">Loaded from Supplier Sheet</div>
+          <div class="kpi-subtitle">Unmapped Items Awaiting AI</div>
         </div>
-        <div class="kpi-card verified">
-          <div class="kpi-title">Mapped and verified</div>
-          <div class="kpi-value" id="kpi-approved">0</div>
-          <div class="kpi-subtitle">Completed & Locked Mappings</div>
+        <div class="kpi-card nearest">
+          <div class="kpi-title">AI Mapped</div>
+          <div class="kpi-value" id="kpi-mapped">0</div>
+          <div class="kpi-subtitle">Candidate Suggestions Ready</div>
         </div>
         <div class="kpi-card validate">
           <div class="kpi-title">Need to Validate</div>
           <div class="kpi-value" id="kpi-validate">0</div>
-          <div class="kpi-subtitle">AI Matches Awaiting Validation</div>
+          <div class="kpi-subtitle">Awaiting Accept / Reject</div>
         </div>
-        <div class="kpi-card pending">
-          <div class="kpi-title">Neeed to Map</div>
-          <div class="kpi-value" id="kpi-pending">0</div>
-          <div class="kpi-subtitle">Items Awaiting Mapping</div>
+        <div class="kpi-card verified">
+          <div class="kpi-title">Mapped and verified</div>
+          <div class="kpi-value" id="kpi-approved">0</div>
+          <div class="kpi-subtitle">Accepted & Locked Mappings</div>
         </div>
         <div class="kpi-card not-avail">
           <div class="kpi-title">Not Available</div>
@@ -184,13 +184,14 @@
         </div>
       </section>
 
-      <!-- Filter & Search Toolbar: Ordered Status Buckets -->
+      <!-- Filter & Search Toolbar: 4 Stages -->
       <section class="toolbar">
         <div class="filter-tabs">
           <button class="tab-btn active" data-filter="ALL">All Items (<span id="tab-count-all">0</span>)</button>
-          <button class="tab-btn" data-filter="VERIFIED">Mapped and verified (<span id="tab-count-verified">0</span>)</button>
+          <button class="tab-btn" data-filter="NEED_MAP">Total Supplier Items (<span id="tab-count-pending">0</span>)</button>
+          <button class="tab-btn" data-filter="MAPPED">AI Mapped Candidates (<span id="tab-count-mapped">0</span>)</button>
           <button class="tab-btn" data-filter="VALIDATE">Need to Validate (<span id="tab-count-validate">0</span>)</button>
-          <button class="tab-btn" data-filter="NEED_MAP">Neeed to Map (<span id="tab-count-pending">0</span>)</button>
+          <button class="tab-btn" data-filter="VERIFIED">Mapped and verified (<span id="tab-count-verified">0</span>)</button>
           <button class="tab-btn" data-filter="NOT_AVAILABLE">Not Available (<span id="tab-count-notavail">0</span>)</button>
         </div>
 
@@ -199,10 +200,12 @@
         </div>
       </section>
 
-      <!-- Interactive Catalog Cards View Layout -->
+      <!-- Stage-Specific Render Container -->
       <section class="cards-section">
         <div id="mapping-table-body" class="cards-view-container">
-          <!-- Rendered via JavaScript: Top Card (Supplier Item) + 3 Horizontal Matching Candidate Cards -->
+          <!-- Stage 1: Supplier Item Header Only -->
+          <!-- Stage 2: Supplier Header + 3-4 Candidate Cards with CTA [MAP] -->
+          <!-- Stage 3: Side-by-Side 2 Cards (Supplier & Mapped RXP) with CTAs [ACCEPT] & [REJECT] -->
         </div>
       </section>
 
@@ -214,18 +217,18 @@
         <div class="modal-header">
           <div>
             <h3>🔗 Google Sheet Link & Tab Configuration</h3>
-            <p class="modal-subtitle">Connect your custom Google Sheet URL and Tab Name</p>
+            <p class="modal-subtitle">Connect your Google Sheet URL and Tab Name (Sheet4)</p>
           </div>
           <button class="close-btn" onclick="closeModal('sheet-config-modal')">&times;</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>Google Sheet Web URL or Share Link:</label>
-            <input type="url" id="sheet-url-config-input" class="form-input large" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
+            <label>Google Sheet Web URL / Link:</label>
+            <input type="url" id="sheet-url-config-input" class="form-input large" placeholder="https://docs.google.com/spreadsheets/d/1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8/edit#gid=691679338">
           </div>
           <div class="form-group">
-            <label>Sheet Tab Name (e.g., Sheet3, SupplierCatalog):</label>
-            <input type="text" id="sheet-name-config-input" class="form-input" placeholder="Sheet3" value="Sheet3">
+            <label>Sheet Tab Name:</label>
+            <input type="text" id="sheet-name-config-input" class="form-input" placeholder="Sheet4" value="Sheet4">
           </div>
           <div style="display: flex; gap: 10px; margin-top: 20px;">
             <button class="btn btn-primary" style="flex: 1;" onclick="saveSheetConfigAndFetch()">
@@ -245,7 +248,7 @@
         <div class="modal-header">
           <div>
             <h3>Import Supplier Catalog Data</h3>
-            <p class="modal-subtitle">Load rows directly from Google Sheet or upload CSV</p>
+            <p class="modal-subtitle">Load rows directly from Google Sheet Sheet4 or upload CSV</p>
           </div>
           <button class="close-btn" id="close-import-modal">&times;</button>
         </div>
@@ -260,7 +263,7 @@
           <!-- Tab 1: Paste Sheet Rows -->
           <div id="import-tab-paste" class="import-tab-content active">
             <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 10px;">
-              Copy your columns directly from Google Sheet and paste them below:
+              Copy your columns directly from Google Sheet Sheet4 and paste them below:
             </p>
             <textarea id="paste-sheet-input" class="form-input" style="height: 180px; font-family: monospace; font-size: 0.8rem;" placeholder="Paste copied Google Sheet rows here (ITEMCODE, ITEMNAME, PACKING, CONTENT, COMPANYNAME, SALERATE, MRP, RXP Code, RXP Name, RXP Pack Size, Status)..."></textarea>
             <button class="btn btn-primary btn-block" id="btn-parse-pasted-sheet" style="margin-top: 14px;">
@@ -335,7 +338,7 @@
         <div class="modal-header">
           <div>
             <h3>⚡ Real-Time Google Sheet Webhook Sync</h3>
-            <p class="modal-subtitle">Connect UI clicks directly to your live Google Sheet</p>
+            <p class="modal-subtitle">Connect UI stage transitions directly to Google Sheet Sheet4</p>
           </div>
           <button class="close-btn" id="close-webhook-modal">&times;</button>
         </div>
@@ -344,19 +347,19 @@
             <label style="font-weight: 700; color: var(--primary);">Google Apps Script Webhook URL:</label>
             <input type="url" id="webhook-url-input" class="form-input large" placeholder="https://script.google.com/macros/s/.../exec">
             <p class="help-text" style="margin-top: 6px;">
-              Paste your deployed Google Apps Script Webhook URL above. Whenever you click <strong>⚡ Validate & Lock Match</strong> or <strong>✕ Not Available</strong>, your Google Sheet will update live!
+              Paste your deployed Apps Script Webhook URL above. Every stage transition (<strong>MAP</strong>, <strong>ACCEPT</strong>, <strong>REJECT</strong>) will sync directly to Google Sheet Sheet4 in real-time!
             </p>
           </div>
 
           <div style="background: var(--bg-dark); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-              <strong style="font-size: 0.9rem; color: var(--text-main);">Google Apps Script Code (Copy into Sheets -> Extensions -> Apps Script):</strong>
+              <strong style="font-size: 0.9rem; color: var(--text-main);">Google Apps Script Code for Sheet4 (Extensions -> Apps Script):</strong>
               <button class="btn btn-secondary btn-sm" id="btn-copy-script-code">📋 Copy Code</button>
             </div>
-            <textarea id="apps-script-code" class="form-input" style="height: 140px; font-family: monospace; font-size: 0.78rem;" readonly>
+            <textarea id="apps-script-code" class="form-input" style="height: 150px; font-family: monospace; font-size: 0.78rem;" readonly>
 function doPost(e) {
   try {
-    var sheetName = "Sheet3";
+    var sheetName = "Sheet4";
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
     if (!sheet) sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
     var data = JSON.parse(e.postData.contents);
@@ -371,7 +374,7 @@ function doPost(e) {
           sheet.getRange(targetRow, 8).setValue(row['RXP Code'] || '');
           sheet.getRange(targetRow, 9).setValue(row['RXP Name'] || '');
           sheet.getRange(targetRow, 10).setValue(row['RXP Pack Size'] || '');
-          sheet.getRange(targetRow, 11).setValue(row.Status || 'Mapped and verified');
+          sheet.getRange(targetRow, 11).setValue(row.Status || 'Neeed to Map');
           break;
         }
       }
@@ -408,7 +411,7 @@ function doPost(e) {
           
           <div style="display: flex; flex-direction: column; gap: 12px;">
             <button class="btn btn-primary btn-block" id="btn-batch-sync-sheet" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-              ⚡ Batch Sync All to Live Google Sheet
+              ⚡ Batch Sync All to Live Google Sheet Sheet4
             </button>
             <button class="btn btn-secondary btn-block" id="btn-download-csv">
               📄 Download Mapped CSV (11 Columns)
