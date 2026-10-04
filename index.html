@@ -23,6 +23,21 @@
         el.style.display = 'none';
       }
     }
+    function openExportModal() {
+      if (window.updateExportSummary) window.updateExportSummary();
+      openModal('export-modal');
+    }
+    function forceFetchLiveGoogleSheet() {
+      if (window.state) {
+        window.state.isSheetLocked = false;
+        localStorage.setItem('catalog_sheet_locked', 'false');
+        if (window.updateLockUI) window.updateLockUI();
+      }
+      localStorage.removeItem('catalog_saved_items');
+      if (window.autoFetchGoogleSheetData) {
+        window.autoFetchGoogleSheetData(false);
+      }
+    }
     function openGoogleSheetLink(e) {
       if (e && e.stopPropagation) e.stopPropagation();
       var url = (window.state && window.state.sheetUrl) ? window.state.sheetUrl : 'https://docs.google.com/spreadsheets/d/1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8/edit#gid=691679338';
@@ -157,6 +172,9 @@
       </div>
 
       <div class="header-actions">
+        <button class="btn btn-secondary" id="btn-refresh-sheet" onclick="forceFetchLiveGoogleSheet()" title="Fetch fresh live rows directly from Google Sheet Sheet4">
+          <span class="icon">🔄</span> Refresh Sheet Data
+        </button>
         <button class="btn btn-secondary" id="btn-lock-sheet" onclick="toggleLockSheetData()" title="Lock Sheet Data so page reloads do not wipe state">
           <span id="lock-icon">🔓</span> <span id="lock-text">Lock Sheet Data</span>
         </button>
@@ -166,16 +184,16 @@
         <button class="btn btn-secondary" id="btn-webhook-modal" onclick="openWebhookModal()" style="background: rgba(99, 102, 241, 0.15); border-color: var(--primary); color: #a5b4fc; font-weight: 700;">
           <span class="icon">⚡</span> Sheet Webhook Sync
         </button>
-        <button class="btn btn-secondary" id="btn-logic-modal">
+        <button class="btn btn-secondary" id="btn-logic-modal" onclick="openModal('logic-modal')">
           <span class="icon">⚙️</span> Custom Logic Rules
         </button>
-        <button class="btn btn-secondary" id="btn-import-modal">
+        <button class="btn btn-secondary" id="btn-import-modal" onclick="openModal('import-modal')">
           <span class="icon">📂</span> Import Sheet / CSV
         </button>
-        <button class="btn btn-secondary" id="btn-export-modal">
+        <button class="btn btn-secondary" id="btn-export-modal" onclick="openExportModal()">
           <span class="icon">📥</span> Export Mapped Data
         </button>
-        <button class="btn btn-primary" id="btn-run-ai-match">
+        <button class="btn btn-primary" id="btn-run-ai-match" onclick="startBatchMatchingProcess()">
           <span class="icon">⚡</span> Run AI Batch Match
         </button>
       </div>

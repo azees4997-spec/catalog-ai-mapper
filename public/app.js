@@ -535,8 +535,20 @@ function initEventListeners() {
 }
 
 // Modal Helpers
-window.openModal = function(id) { document.getElementById(id).classList.remove('hidden'); };
-window.closeModal = function(id) { document.getElementById(id).classList.add('hidden'); };
+window.openModal = function(id) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.classList.remove('hidden');
+    el.style.display = 'flex';
+  }
+};
+window.closeModal = function(id) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.classList.add('hidden');
+    el.style.display = 'none';
+  }
+};
 
 // Load Sample Supplier Catalog
 function loadSampleData() {
