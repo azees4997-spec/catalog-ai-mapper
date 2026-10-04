@@ -471,6 +471,16 @@ function initEventListeners() {
   document.getElementById('close-candidate-modal').addEventListener('click', () => closeModal('candidate-modal'));
   document.getElementById('close-search-modal').addEventListener('click', () => closeModal('search-modal'));
 
+  const btnSearchMaster = document.getElementById('btn-execute-master-search');
+  if (btnSearchMaster) btnSearchMaster.addEventListener('click', () => executeMasterSearch());
+
+  const inputSearchQuery = document.getElementById('master-search-query');
+  if (inputSearchQuery) {
+    inputSearchQuery.addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') executeMasterSearch();
+    });
+  }
+
   document.getElementById('btn-run-ai-match').addEventListener('click', startBatchMatchingProcess);
 
   // Import Tabs
@@ -1205,7 +1215,9 @@ window.openSearchModal = function(itemId) {
 
   state.selectedItemForSearchModal = item;
   const name = item.ITEMNAME || '';
-  document.getElementById('search-supplier-item-title').innerHTML = `Mapping for: <strong>${name}</strong>`;
+  const pack = item.PACKING || item.PACK || item.Pack || item['Pack'] || '';
+  const packBadge = pack ? ` <span style="background: rgba(99, 102, 241, 0.25); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; font-weight: 700; margin-left: 6px;">Pack: ${escapeHtml(pack)}</span>` : '';
+  document.getElementById('search-supplier-item-title').innerHTML = `Mapping for: <strong style="color: #ffffff;">${escapeHtml(name)}</strong>${packBadge}`;
   document.getElementById('master-search-query').value = name.split(' ')[0] || '';
   
   openModal('search-modal');
