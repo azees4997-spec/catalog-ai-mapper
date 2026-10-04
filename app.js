@@ -8,10 +8,10 @@ let state = {
   selectedItemForCandidateModal: null,
   selectedItemForSearchModal: null,
   isMatchingActive: false,
-  webhookUrl: localStorage.getItem('catalog_webhook_url') || '',
-  sheet5Url: localStorage.getItem('catalog_sheet5_url') || '',
+  webhookUrl: localStorage.getItem('catalog_webhook_url') || 'https://script.google.com/macros/s/AKfycbwE63OrixJpKa9fxs1ihXa3yM6DhGq6RtdyVmptShccGpzR4vvMd35XzGIqT5UKNjI/exec',
+  sheet5Url: localStorage.getItem('catalog_sheet5_url') || 'https://docs.google.com/spreadsheets/d/1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8/edit#gid=978686474',
   mapperName: localStorage.getItem('catalog_mapper_name') || '',
-  sheetUrl: localStorage.getItem('catalog_sheet_url') || 'https://docs.google.com/spreadsheets/d/1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8/edit?gid=691679338#gid=691679338',
+  sheetUrl: localStorage.getItem('catalog_sheet_url') || 'https://docs.google.com/spreadsheets/d/1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8/edit#gid=691679338',
   sheetName: localStorage.getItem('catalog_sheet_name') || 'Sheet4',
   isSheetLocked: localStorage.getItem('catalog_sheet_locked') === 'true',
   mappingRules: {
