@@ -1310,7 +1310,6 @@ function parseCSVText(csvText, silent = false) {
     return;
   }
 
-  let startIndex = 0;
   const firstLineCols = lines[0].split('\t').length > 1 ? lines[0].split('\t') : parseCSVLine(lines[0]);
   // Dynamic Header Column Index Map
   let codeIdx = 0;
