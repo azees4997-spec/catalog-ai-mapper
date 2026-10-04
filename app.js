@@ -9,6 +9,7 @@ let state = {
   selectedItemForSearchModal: null,
   isMatchingActive: false,
   webhookUrl: localStorage.getItem('catalog_webhook_url') || '',
+  sheet5Url: localStorage.getItem('catalog_sheet5_url') || '',
   mapperName: localStorage.getItem('catalog_mapper_name') || '',
   sheetUrl: localStorage.getItem('catalog_sheet_url') || 'https://docs.google.com/spreadsheets/d/1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8/edit?gid=691679338#gid=691679338',
   sheetName: localStorage.getItem('catalog_sheet_name') || 'Sheet4',
@@ -1138,7 +1139,10 @@ function sendWebhookUpdate(items) {
       'RXP Code': item.Status === 'Not Available' ? '' : (item['RXP Code'] || ''),
       'RXP Name': item.Status === 'Not Available' ? '' : (item['RXP Name'] || ''),
       'RXP Pack Size': item.Status === 'Not Available' ? '' : (item['RXP Pack Size'] || ''),
-      Status: item.Status || 'Need to Map',
+      PACKING: item.PACKING || '',
+        CONTENT: item.CONTENT || '',
+        MRP: item.MRP || '',
+        Status: item.Status || 'Need to Map',
       MapperName: mapperName,
       candidates: item.candidates || []
   }));

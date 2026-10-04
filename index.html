@@ -73,7 +73,9 @@
     function openSheetConfigModal() {
       var urlInput = document.getElementById('sheet-url-config-input');
       var url5Input = document.getElementById('sheet5-url-config-input');
-      var nameInput = document.getElementById('sheet-name-config-input');
+      var webhookInput = document.getElementById('sheet-webhook-config-input');
+        var nameInput = document.getElementById('sheet-name-config-input');
+        if (webhookInput && window.state) webhookInput.value = window.state.webhookUrl || localStorage.getItem('catalog_webhook_url') || '';
       if (urlInput && window.state) urlInput.value = window.state.sheetUrl || 'https://docs.google.com/spreadsheets/d/1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8/edit?gid=691679338#gid=691679338';
         if (url5Input && window.state) url5Input.value = window.state.sheet5Url || '';
       if (nameInput && window.state) nameInput.value = window.state.sheetName || 'Sheet4';
