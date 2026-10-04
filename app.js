@@ -1083,9 +1083,13 @@ function renderTable() {
             </div>
 
             <!-- CTA: MAP -->
-            <button class="btn btn-primary btn-sm btn-block" style="margin-top: 10px; font-weight: 700; background: linear-gradient(135deg, var(--primary) 0%, #4f46e5 100%);" onclick="mapCandidateToValidation('${item.id}', '${cand.master_product_id}', '${escapeHtml(cand.master_product_name)}', '${escapeHtml(cand.master_packaging)}')">
-              ⚡ MAP THIS CANDIDATE
-            </button>
+              ${(item.Status === 'Mapped and verified' || item.Status === 'APPROVED') ? 
+                `<div style="text-align: center; margin-top: 10px; padding: 6px; border-radius: 6px; background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700; border: 1px solid rgba(16, 185, 129, 0.3);">✓ VERIFIED MATCH</div>`
+              :
+                `<button class="btn btn-primary btn-sm btn-block" style="margin-top: 10px; font-weight: 700; background: linear-gradient(135deg, var(--primary) 0%, #4f46e5 100%);" onclick="mapCandidateToValidation('${item.id}', '${cand.master_product_id}', '${escapeHtml(cand.master_product_name)}', '${escapeHtml(cand.master_packaging)}')">
+                  ⚡ MAP THIS CANDIDATE
+                </button>`
+              }
           </div>
         `;
       });
