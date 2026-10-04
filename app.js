@@ -1096,6 +1096,10 @@ function renderTable() {
             <span class="meta-label">Manufacturer Name</span>
             <span class="meta-value" style="color: var(--primary); font-weight: 600;">${item.COMPANYNAME || 'Supplier'}</span>
           </div>
+          <div class="meta-field">
+            <span class="meta-label">MRP</span>
+            <span class="meta-value" style="color: var(--success); font-weight: 600;">₹${item.MRP || 'N/A'}</span>
+          </div>
           <div class="meta-field wide">
             <span class="meta-label">Composition</span>
             <span class="meta-value" style="color: var(--text-muted); font-size: 0.85rem;">${item.CONTENT || 'N/A'}</span>
