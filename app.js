@@ -373,7 +373,7 @@ window.autoFetchGoogleSheetData = async function(silent = false) {
     const res = await fetch(fetchUrl);
     const csvData = await res.text();
     
-    if (csvData && !csvData.includes('<!DOCTYPE html>') && csvData.includes('ITEMCODE')) {
+    if (csvData && !csvData.includes('<!DOCTYPE html>') && (csvData.toUpperCase().includes('ITEM CODE') || csvData.toUpperCase().includes('ITEMCODE') || csvData.toUpperCase().includes('ITEM NAME') || csvData.toUpperCase().includes('STATUS'))) {
       if (!silent && progressBar) {
         progressFill.style.width = '70%';
         progressText.textContent = 'Parsing Google Sheet rows & status buckets...';
@@ -398,7 +398,24 @@ window.autoFetchGoogleSheetData = async function(silent = false) {
   return false;
 };
 
-// Initialize DOM elements & Listeners with persistent state restoration
+// Force fetch fresh live Google Sheet data (clears cache)
+window.forceFetchLiveGoogleSheet = async function() {
+  state.isSheetLocked = false;
+  localStorage.setItem('catalog_sheet_locked', 'false');
+  localStorage.removeItem('catalog_saved_items');
+  state.items = [];
+
+  try {
+    const db = await StorageManager.openDB();
+    const tx = db.transaction(StorageManager.storeName, 'readwrite');
+    tx.objectStore(StorageManager.storeName).delete('saved_items');
+  } catch (e) {}
+
+  window.updateLockUI();
+  await window.autoFetchGoogleSheetData(false);
+};
+
+// Initialize DOM elements & Listeners with fresh sheet fetch
 document.addEventListener('DOMContentLoaded', async () => {
   const headerSheetName = document.getElementById('header-sheet-name');
   if (headerSheetName) headerSheetName.textContent = state.sheetName;
@@ -407,23 +424,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.updateWebhookStatusUI();
   window.updateLockUI();
 
-  // 1. Try loading persistent state (if previously saved/imported)
-  const savedItems = await StorageManager.loadState();
-  if (savedItems && Array.isArray(savedItems) && savedItems.length > 0 && !savedItems.isSample) {
-    state.items = savedItems.map(i => {
-      const item = { ...i };
-      ensureItemCandidates(item);
-      return item;
-    });
-    updateKPICounters();
-    renderTable();
-    console.log(`Loaded ${savedItems.length} items from local storage.`);
-  } else {
-    // 2. Auto-fetch live Google Sheet data from Sheet4
-    const fetched = await window.autoFetchGoogleSheetData(true);
-    if (!fetched) {
-      // Fallback to sample supplier items if offline/fetch fails
-      state.items = SAMPLE_SUPPLIER_ITEMS.map(i => {
+  // Auto-fetch fresh live Google Sheet data from Sheet4
+  const fetched = await window.autoFetchGoogleSheetData(true);
+  if (!fetched) {
+    const savedItems = await StorageManager.loadState();
+    if (savedItems && Array.isArray(savedItems) && savedItems.length > 0) {
+      state.items = savedItems.map(i => {
         const item = { ...i };
         ensureItemCandidates(item);
         return item;
