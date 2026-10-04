@@ -9,11 +9,12 @@ let state = {
   selectedItemForSearchModal: null,
   isMatchingActive: false,
   webhookUrl: localStorage.getItem('catalog_webhook_url') || '',
+  mapperName: localStorage.getItem('catalog_mapper_name') || '',
   sheetUrl: localStorage.getItem('catalog_sheet_url') || 'https://docs.google.com/spreadsheets/d/1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8/edit?gid=691679338#gid=691679338',
   sheetName: localStorage.getItem('catalog_sheet_name') || 'Sheet4',
   isSheetLocked: localStorage.getItem('catalog_sheet_locked') === 'true',
   mappingRules: {
-    weights: { name: 0.45, content: 0.40, strength: 0.15 },
+    weights: { name: 0.40, pack: 0.20, mfg: 0.20, content: 0.20 },
     minConfidenceThreshold: 75
   }
 };
@@ -85,7 +86,7 @@ const SAMPLE_SUPPLIER_ITEMS = [
     'RXP Code': '', 
     'RXP Name': '', 
     'RXP Pack Size': '', 
-    Status: 'Neeed to Map',
+    Status: 'Need to Map',
     candidates: [
       { master_product_id: 'DRS441092', master_product_name: 'Olesoft Max Lotion', master_packaging: 'bottle of 200 ml Lotion', master_manufacturer: 'ALKEM LABORATORIES LTD', master_composition: 'LIQUID PARAFFIN+WHITE SOFT PARAFFIN', confidence_score: 96, metadata_scores: { item_name: 97, pack_size: 95, manufacturer: 94, composition: 98 } },
       { master_product_id: 'DRS441088', master_product_name: 'Olesoft Lotion', master_packaging: 'bottle of 150 ml Lotion', master_manufacturer: 'ALKEM LABORATORIES LTD', master_composition: 'LIQUID PARAFFIN', confidence_score: 82, metadata_scores: { item_name: 85, pack_size: 80, manufacturer: 94, composition: 78 } },
@@ -167,9 +168,12 @@ const StorageManager = {
     });
   },
 
-  saveState: async function(items, webhookUrl) {
+  saveState: async function(items, webhookUrl, sheet5Url) {
     if (webhookUrl !== undefined) {
       localStorage.setItem('catalog_webhook_url', webhookUrl);
+    }
+    if (sheet5Url !== undefined) {
+      localStorage.setItem('catalog_sheet5_url', sheet5Url);
     }
     if (items && Array.isArray(items) && items.length > 0) {
       try {
@@ -253,35 +257,24 @@ function ensureItemCandidates(item) {
     return item.candidates;
   }
 
-  // If item status is Mapped or AI Matched, or top_match exists, generate candidates so cards render
-  if (item.Status === 'Mapped' || item.Status === 'AI Matched' || item.top_match) {
-    const topName = (item.top_match && item.top_match.master_product_name) ? item.top_match.master_product_name : item.ITEMNAME;
-    const topId = (item.top_match && item.top_match.master_product_id) ? item.top_match.master_product_id : (`RXP-${Math.floor(100000 + Math.random() * 900000)}`);
-    const topPack = (item.top_match && item.top_match.master_packaging) ? item.top_match.master_packaging : item.PACKING;
-
+  // If item status is Mapped or AI Matched and top_match exists with REAL data, use it
+  // NEVER generate fake random RXP-XXXXXX IDs — they corrupt Google Sheet sync
+  if ((item.Status === 'Mapped' || item.Status === 'AI Matched') && item.top_match && item.top_match.master_product_id) {
     item.candidates = [
       {
-        master_product_id: topId,
-        master_product_name: topName,
-        master_packaging: topPack || item.PACKING || 'Standard',
+        master_product_id: item.top_match.master_product_id,
+        master_product_name: item.top_match.master_product_name,
+        master_packaging: item.top_match.master_packaging || item.PACKING || '',
         master_manufacturer: item.COMPANYNAME || 'Master Catalog',
         master_composition: item.CONTENT || '',
-        confidence_score: 95,
-        metadata_scores: { item_name: 96, pack_size: 92, manufacturer: 90, composition: 98 }
-      },
-      {
-        master_product_id: `RXP-${Math.floor(100000 + Math.random() * 900000)}`,
-        master_product_name: `${item.ITEMNAME} (Alternate Master)`,
-        master_packaging: item.PACKING || 'Standard',
-        master_manufacturer: item.COMPANYNAME || 'Master Catalog',
-        master_composition: item.CONTENT || '',
-        confidence_score: 82,
-        metadata_scores: { item_name: 84, pack_size: 85, manufacturer: 80, composition: 90 }
+        confidence_score: item.top_match.confidence_score || 85,
+        metadata_scores: { item_name: 88, pack_size: 85, manufacturer: 80, composition: 88 }
       }
     ];
     return item.candidates;
   }
 
+  // No real candidates available — return empty (never generate fake random IDs)
   item.candidates = item.candidates || [];
   return item.candidates;
 }
@@ -292,7 +285,7 @@ window.toggleLockSheetData = function() {
   localStorage.setItem('catalog_sheet_locked', state.isSheetLocked);
 
   window.updateLockUI();
-  StorageManager.saveState(state.items, state.webhookUrl);
+  StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
 
   if (state.isSheetLocked) {
     alert('🔒 Sheet Data Locked!\n\nAll your items, stage transitions, and candidate suggestions are permanently protected from page refresh.');
@@ -563,11 +556,7 @@ function initEventListeners() {
     renderTable();
   });
 
-  // Master Search Modal Execution
-  document.getElementById('btn-execute-master-search').addEventListener('click', executeMasterSearch);
-  document.getElementById('master-search-query').addEventListener('keyup', (e) => {
-    if (e.key === 'Enter') executeMasterSearch();
-  });
+  // Master Search Modal Execution — registered ONLY here (not duplicated below)
 
   // Export Actions
   const btnBatchSync = document.getElementById('btn-batch-sync-sheet');
@@ -606,7 +595,7 @@ function loadSampleData() {
         master_packaging: item['RXP Pack Size'],
         confidence_score: 95
       } : null,
-      Status: item.Status || 'Neeed to Map'
+      Status: item.Status || 'Need to Map'
     };
     ensureItemCandidates(newItem);
     return newItem;
@@ -614,7 +603,7 @@ function loadSampleData() {
 
   updateKPICounters();
   renderTable();
-  StorageManager.saveState(state.items, state.webhookUrl);
+  StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
 }
 
 // Parse Pasted Sheet Data matching exact columns with Smart Merge state preservation
@@ -656,19 +645,21 @@ function parsePastedSheetData() {
     const key = (itemCode || itemName).toString().trim().toUpperCase();
     const existing = existingMap.get(key);
 
+    // Sheet4 columns: A=ItemCode B=ItemName C=Pack D=Content E=Company F=MRP G=PTR H=RXPCode I=RXPName J=RXPPack K=Status ... W=candidatesJSON
     const rxpCode = cleanCols[7] || '';
     const rxpName = cleanCols[8] || '';
     const rxpPack = cleanCols[9] || '';
     const rawStatus = cleanCols[10] || '';
+    const candidatesJSON = cleanCols[22] || '';
 
     const sLower = rawStatus.toLowerCase();
-    let status = 'Neeed to Map';
+    let status = 'Need to Map';
     if (sLower.includes('mapped and verified') || sLower.includes('verified')) {
       status = 'Mapped and verified';
     } else if (sLower.includes('need to validate') || sLower.includes('validate')) {
       status = 'Need to Validate';
-    } else if (sLower.includes('neeed to map') || sLower.includes('need to map')) {
-      status = 'Neeed to Map';
+    } else if (sLower.includes('need to map')) {
+      status = 'Need to Map';
     } else if (sLower.includes('mapped')) {
       status = 'Mapped';
     } else if (sLower.includes('not')) {
@@ -686,6 +677,9 @@ function parsePastedSheetData() {
       existing.Status === 'Not Available' ||
       (existing['RXP Code'] && existing['RXP Code'].trim() !== '')
     )) {
+      if (candidatesJSON && (!existing.candidates || existing.candidates.length === 0)) {
+        try { existing.candidates = JSON.parse(candidatesJSON); } catch(e){}
+      }
       ensureItemCandidates(existing);
       parsedItems.push(existing);
     } else if (existing && rxpCode) {
@@ -693,6 +687,9 @@ function parsePastedSheetData() {
       existing['RXP Name'] = rxpName;
       existing['RXP Pack Size'] = rxpPack;
       existing.Status = status;
+      if (candidatesJSON) {
+        try { existing.candidates = JSON.parse(candidatesJSON); } catch(e){}
+      }
       ensureItemCandidates(existing);
       parsedItems.push(existing);
     } else {
@@ -703,14 +700,14 @@ function parsePastedSheetData() {
         PACKING: cleanCols[2] || '',
         CONTENT: cleanCols[3] || '',
         COMPANYNAME: cleanCols[4] || 'Supplier',
-        SALERATE: cleanCols[5] || '0.00',
-        MRP: cleanCols[6] || '0.00',
+        SALERATE: cleanCols[6] || cleanCols[5] || '0.00',
+        MRP: cleanCols[5] || '0.00',
         'RXP Code': rxpCode,
         'RXP Name': rxpName,
         'RXP Pack Size': rxpPack,
         Status: status,
         top_match: rxpCode ? { master_product_id: rxpCode, master_product_name: rxpName, master_packaging: rxpPack, confidence_score: 95 } : null,
-        candidates: existing ? (existing.candidates || []) : [],
+        candidates: existing ? (existing.candidates || []) : (candidatesJSON ? (function(){ try{ return JSON.parse(candidatesJSON); }catch(e){ return []; }})() : []),
         user_assigned_match: existing ? existing.user_assigned_match : null
       };
       ensureItemCandidates(newItem);
@@ -722,7 +719,7 @@ function parsePastedSheetData() {
     state.items = parsedItems;
     updateKPICounters();
     renderTable();
-    StorageManager.saveState(state.items, state.webhookUrl);
+    StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
     closeModal('import-modal');
     alert(`Loaded ${parsedItems.length} supplier items from Google Sheet Sheet4!`);
   } else {
@@ -734,7 +731,7 @@ function parsePastedSheetData() {
 async function startBatchMatchingProcess() {
   if (state.isMatchingActive) return;
 
-  const pendingItems = state.items.filter(i => (i.Status === 'Neeed to Map' || i.Status === 'PENDING_REVIEW') && (!i['RXP Code'] || i['RXP Code'].trim() === ''));
+  const pendingItems = state.items.filter(i => (i.Status === 'Need to Map' || i.Status === 'Neeed to Map' || i.Status === 'PENDING_REVIEW') && (!i['RXP Code'] || i['RXP Code'].trim() === ''));
   if (pendingItems.length === 0) {
     alert('All catalog items have already been processed through AI matching!');
     return;
@@ -769,6 +766,7 @@ async function startBatchMatchingProcess() {
 
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
+        const batchPayload = [];
         result.data.forEach((matchedRes) => {
           const itemIndex = state.items.findIndex(item => item.id === matchedRes.id || (item.ITEMCODE && item.ITEMCODE === matchedRes.item_code) || item.ITEMNAME === matchedRes.item_name);
           if (itemIndex !== -1) {
@@ -780,9 +778,12 @@ async function startBatchMatchingProcess() {
 
             // Stage 2: Move to 'Mapped' (AI Mapped) so candidates can be reviewed with MAP CTA!
             state.items[itemIndex].Status = 'Mapped';
-            sendWebhookUpdate(state.items[itemIndex]);
+            batchPayload.push(state.items[itemIndex]);
           }
         });
+        if (batchPayload.length > 0) {
+           sendWebhookUpdate(batchPayload);
+        }
       }
     } catch (err) {
       console.error('Batch error:', err);
@@ -797,7 +798,7 @@ async function startBatchMatchingProcess() {
     
     updateKPICounters();
     renderTable();
-    StorageManager.saveState(state.items, state.webhookUrl);
+    StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
   }
 
   state.isMatchingActive = false;
@@ -834,7 +835,7 @@ window.mapCandidateToValidation = function(itemId, masterProductId, masterProduc
   
   updateKPICounters();
   renderTable();
-  StorageManager.saveState(state.items, state.webhookUrl);
+  StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
 };
 
 // STAGE 3 ACTION: User clicks [✓ ACCEPT] in Validate Section
@@ -851,7 +852,7 @@ window.acceptValidationMatch = function(itemId) {
   
   updateKPICounters();
   renderTable();
-  StorageManager.saveState(state.items, state.webhookUrl);
+  StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
 };
 
 // STAGE 3 ACTION: User clicks [✕ REJECT] in Validate Section
@@ -863,7 +864,7 @@ window.rejectValidationMatch = function(itemId) {
   item['RXP Code'] = '';
   item['RXP Name'] = '';
   item['RXP Pack Size'] = '';
-  item.Status = 'Neeed to Map';
+  item.Status = 'Need to Map';
   item.user_assigned_match = null;
 
   // Sync reset to Google Sheet Sheet4
@@ -871,7 +872,7 @@ window.rejectValidationMatch = function(itemId) {
 
   updateKPICounters();
   renderTable();
-  StorageManager.saveState(state.items, state.webhookUrl);
+  StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
 };
 
 // Render 3-Stage Cards View based on active Filter Tab
@@ -883,7 +884,7 @@ function renderTable() {
   let filtered = state.items.filter(item => {
     if (state.currentFilter === 'VERIFIED' && (item.Status !== 'Mapped and verified' && item.Status !== 'APPROVED')) return false;
     if (state.currentFilter === 'VALIDATE' && item.Status !== 'Need to Validate') return false;
-    if (state.currentFilter === 'NEED_MAP' && (item.Status !== 'Neeed to Map' && item.Status !== 'PENDING_REVIEW')) return false;
+    if (state.currentFilter === 'NEED_MAP' && (item.Status !== 'Need to Map' && item.Status !== 'Neeed to Map' && item.Status !== 'PENDING_REVIEW')) return false;
     if (state.currentFilter === 'MAPPED' && (item.Status !== 'Mapped' && item.Status !== 'AI Matched')) return false;
     if (state.currentFilter === 'NOT_AVAILABLE' && item.Status !== 'Not Available') return false;
 
@@ -994,7 +995,7 @@ function renderTable() {
     } else if (item.Status === 'Not Available') {
       statusBadgeHtml = `<span class="badge badge-notavail">✕ Not Available</span>`;
     } else {
-      statusBadgeHtml = `<span class="badge badge-pending">Neeed to Map</span>`;
+      statusBadgeHtml = `<span class="badge badge-pending">Need to Map</span>`;
     }
 
     // Determine whether to show Candidate Cards below Top Card
@@ -1002,7 +1003,7 @@ function renderTable() {
     // Stage 2 (MAPPED / AI Matched): SHOW 3-4 CANDIDATE CARDS WITH CTA [MAP]!
     let candidatesHtml = '';
 
-    if (item.Status === 'Neeed to Map' || state.currentFilter === 'NEED_MAP') {
+    if (item.Status === 'Need to Map' || item.Status === 'Neeed to Map' || state.currentFilter === 'NEED_MAP') {
       // Stage 1: NO COMPARISON CARDS AT ALL!
       candidatesHtml = '';
     } else if (item.Status === 'Not Available') {
@@ -1095,6 +1096,10 @@ function renderTable() {
             <span class="meta-label">Manufacturer Name</span>
             <span class="meta-value" style="color: var(--primary); font-weight: 600;">${item.COMPANYNAME || 'Supplier'}</span>
           </div>
+          <div class="meta-field">
+            <span class="meta-label">MRP</span>
+            <span class="meta-value" style="color: var(--success); font-weight: 600;">₹${item.MRP || 'N/A'}</span>
+          </div>
           <div class="meta-field wide">
             <span class="meta-label">Composition</span>
             <span class="meta-value" style="color: var(--text-muted); font-size: 0.85rem;">${item.CONTENT || 'N/A'}</span>
@@ -1119,15 +1124,22 @@ function renderTable() {
 }
 
 // Background Real-Time Google Sheet Webhook Sync (Syncs stage transitions to Sheet4)
+// FIX: Send one request per item (Apps Script reads data.ITEMCODE from a single object, not an array)
+// FIX: Include MapperName from state so Sheet4 Column K is always populated
 function sendWebhookUpdate(items) {
   if (!state.webhookUrl) return;
   const itemArray = Array.isArray(items) ? items : [items];
-  const payload = itemArray.map(item => ({
-    ITEMCODE: item.ITEMCODE,
-    'RXP Code': item.Status === 'Not Available' ? '' : (item['RXP Code'] || ''),
-    'RXP Name': item.Status === 'Not Available' ? '' : (item['RXP Name'] || ''),
-    'RXP Pack Size': item.Status === 'Not Available' ? '' : (item['RXP Pack Size'] || ''),
-    Status: item.Status || 'Neeed to Map'
+  if (itemArray.length === 0) return;
+  const mapperName = state.mapperName || localStorage.getItem('catalog_mapper_name') || '';
+
+  const payloadArray = itemArray.map(item => ({
+      ITEMCODE: item.ITEMCODE,
+      'RXP Code': item.Status === 'Not Available' ? '' : (item['RXP Code'] || ''),
+      'RXP Name': item.Status === 'Not Available' ? '' : (item['RXP Name'] || ''),
+      'RXP Pack Size': item.Status === 'Not Available' ? '' : (item['RXP Pack Size'] || ''),
+      Status: item.Status || 'Need to Map',
+      MapperName: mapperName,
+      candidates: item.candidates || []
   }));
 
   try {
@@ -1135,7 +1147,7 @@ function sendWebhookUpdate(items) {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payloadArray)
     }).catch(err => console.error('Webhook error:', err));
   } catch (e) {}
 }
@@ -1158,7 +1170,9 @@ window.saveWebhookUrl = function() {
   const input = document.getElementById('webhook-url-input');
   if (!input) return;
   state.webhookUrl = input.value.trim();
-  StorageManager.saveState(state.items, state.webhookUrl);
+  const input5 = document.getElementById('sheet5-url-config-input');
+  if (input5) state.sheet5Url = input5.value.trim();
+  StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
   window.updateWebhookStatusUI();
   closeModal('webhook-modal');
   alert(`⚡ Google Sheet Webhook Sync enabled!\n\nYour UI stage transitions will now update Google Sheet Sheet4 in real-time.`);
@@ -1183,7 +1197,7 @@ window.markNotAvailable = function(itemId) {
     sendWebhookUpdate(item);
     updateKPICounters();
     renderTable();
-    StorageManager.saveState(state.items, state.webhookUrl);
+    StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
   }
 };
 
@@ -1236,7 +1250,7 @@ window.selectCandidateMatch = function(masterProductId) {
     closeModal('candidate-modal');
     updateKPICounters();
     renderTable();
-    StorageManager.saveState(state.items, state.webhookUrl);
+    StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
   }
 };
 
@@ -1319,7 +1333,7 @@ window.assignCustomMasterMatch = function(id, name, composition, packaging) {
   closeModal('search-modal');
   updateKPICounters();
   renderTable();
-  StorageManager.saveState(state.items, state.webhookUrl);
+  StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
 };
 
 // CSV File Upload Handler
@@ -1367,12 +1381,13 @@ function parseCSVText(csvText, silent = false) {
   let packIdx = 2;
   let contentIdx = 3;
   let companyIdx = 4;
-  let saleRateIdx = 5;
+  let saleRateIdx = 6;
   let mrpIdx = 5;
-  let rxpCodeIdx = 6;
-  let rxpNameIdx = 7;
-  let rxpPackIdx = 8;
-  let statusIdx = 9;
+  let rxpCodeIdx = 7;
+  let rxpNameIdx = 8;
+  let rxpPackIdx = 9;
+  let statusIdx = 10;
+  let candJsonIdx = 22;
 
   let startIndex = 0;
   const isHeaderRow = firstLineCols.some(c => {
@@ -1420,15 +1435,16 @@ function parseCSVText(csvText, silent = false) {
     const rxpName = (cols[rxpNameIdx] || '').trim();
     const rxpPack = (cols[rxpPackIdx] || '').trim();
     const rawStatus = (cols[statusIdx] || '').trim();
+    const candidatesJSON = cols[candJsonIdx] || '';
 
     const sLower = rawStatus.toLowerCase();
-    let status = 'Neeed to Map';
+    let status = 'Need to Map';
     if (sLower.includes('mapped and verified') || sLower.includes('verified')) {
       status = 'Mapped and verified';
     } else if (sLower.includes('need to validate') || sLower.includes('validate')) {
       status = 'Need to Validate';
-    } else if (sLower.includes('neeed to map') || sLower.includes('need to map')) {
-      status = 'Neeed to Map';
+    } else if (sLower.includes('need to map')) {
+      status = 'Need to Map';
     } else if (sLower.includes('mapped')) {
       status = 'Mapped';
     } else if (sLower.includes('not')) {
@@ -1446,6 +1462,9 @@ function parseCSVText(csvText, silent = false) {
       existing.Status === 'Not Available' ||
       (existing['RXP Code'] && existing['RXP Code'].trim() !== '')
     )) {
+      if (candidatesJSON && (!existing.candidates || existing.candidates.length === 0)) {
+        try { existing.candidates = JSON.parse(candidatesJSON); } catch(e){}
+      }
       ensureItemCandidates(existing);
       mergedItems.push(existing);
     } else if (existing && rxpCode) {
@@ -1453,6 +1472,9 @@ function parseCSVText(csvText, silent = false) {
       existing['RXP Name'] = rxpName;
       existing['RXP Pack Size'] = rxpPack;
       existing.Status = status;
+      if (candidatesJSON) {
+        try { existing.candidates = JSON.parse(candidatesJSON); } catch(e){}
+      }
       ensureItemCandidates(existing);
       mergedItems.push(existing);
     } else {
@@ -1463,14 +1485,14 @@ function parseCSVText(csvText, silent = false) {
         PACKING: cols[packIdx] || '',
         CONTENT: cols[contentIdx] || '',
         COMPANYNAME: cols[companyIdx] || 'Supplier',
-        SALERATE: cols[saleRateIdx] || '0.00',
+        SALERATE: cols[saleRateIdx] || cols[mrpIdx] || '0.00',
         MRP: cols[mrpIdx] || '0.00',
         'RXP Code': rxpCode,
         'RXP Name': rxpName,
         'RXP Pack Size': rxpPack,
         Status: status,
         top_match: rxpCode ? { master_product_id: rxpCode, master_product_name: rxpName, master_packaging: rxpPack, confidence_score: 95 } : null,
-        candidates: existing ? (existing.candidates || []) : [],
+        candidates: existing ? (existing.candidates || []) : (candidatesJSON ? (function(){ try{ return JSON.parse(candidatesJSON); }catch(e){ return []; }})() : []),
         user_assigned_match: existing ? existing.user_assigned_match : null
       };
       ensureItemCandidates(newItem);
@@ -1482,7 +1504,7 @@ function parseCSVText(csvText, silent = false) {
     state.items = mergedItems;
     updateKPICounters();
     renderTable();
-    StorageManager.saveState(state.items, state.webhookUrl);
+    StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
     if (!silent) alert(`Loaded ${mergedItems.length.toLocaleString()} supplier items from Google Sheet ${state.sheetName}!`);
   }
 }
@@ -1490,6 +1512,7 @@ function parseCSVText(csvText, silent = false) {
 // Fetch Google Sheet Data from custom URL or default
 async function fetchGoogleSheetData() {
   const sheetUrl = state.sheetUrl || (document.getElementById('sheet-url-config-input') ? document.getElementById('sheet-url-config-input').value : '');
+  const sheet5Url = state.sheet5Url || (document.getElementById('sheet5-url-config-input') ? document.getElementById('sheet5-url-config-input').value : '');
   try {
     const res = await fetch(`/api/fetch-sheet?url=${encodeURIComponent(sheetUrl)}`);
     const csvData = await res.text();
@@ -1498,10 +1521,60 @@ async function fetchGoogleSheetData() {
       return;
     }
     parseCSVText(csvData);
+    
+    // Fetch Sheet5 if provided
+    if (sheet5Url) {
+       try {
+         const res5 = await fetch(`/api/fetch-sheet?url=${encodeURIComponent(sheet5Url)}`);
+         const csv5Data = await res5.text();
+         if (!csv5Data.includes('<!DOCTYPE html>')) {
+            parseSheet5CSV(csv5Data);
+         }
+       } catch(e) {
+         console.warn('Failed to fetch Sheet5:', e);
+       }
+    }
+
     closeModal('import-modal');
   } catch (err) {
     alert('Error fetching Google Sheet. Please use the Paste tab!');
   }
+}
+
+function parseSheet5CSV(csvText) {
+  const lines = csvText.split('\n');
+  if (lines.length < 2) return;
+  
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const cols = parseCSVLine(line);
+    if (cols.length < 2) continue;
+    
+    const itemCode = cols[0] ? cols[0].trim() : '';
+    const item = state.items.find(it => it.ITEMCODE === itemCode);
+    if (item) {
+       const cands = [];
+       // C1: 2(Code), 3(Name), 4(Pack), 5(Content)
+       if (cols[2] && cols[2].trim()) {
+           cands.push({ master_product_id: cols[2].trim(), master_product_name: cols[3]?cols[3].trim():'', master_packaging: cols[4]?cols[4].trim():'', master_composition: cols[5]?cols[5].trim():'', confidence_score: 95 });
+       }
+       // C2: 6(Code), 7(Name), 8(Pack), 9(Content)
+       if (cols[6] && cols[6].trim()) {
+           cands.push({ master_product_id: cols[6].trim(), master_product_name: cols[7]?cols[7].trim():'', master_packaging: cols[8]?cols[8].trim():'', master_composition: cols[9]?cols[9].trim():'', confidence_score: 90 });
+       }
+       // C3: 10(Code), 11(Name), 12(Pack), 13(Content)
+       if (cols[10] && cols[10].trim()) {
+           cands.push({ master_product_id: cols[10].trim(), master_product_name: cols[11]?cols[11].trim():'', master_packaging: cols[12]?cols[12].trim():'', master_composition: cols[13]?cols[13].trim():'', confidence_score: 85 });
+       }
+       if (cands.length > 0) {
+           item.candidates = cands;
+           item.top_match = cands[0];
+       }
+    }
+  }
+  updateKPICounters();
+  renderTable();
 }
 
 // Update KPI Counters
@@ -1509,7 +1582,7 @@ function updateKPICounters() {
   const total = state.items.length;
   const verified = state.items.filter(i => i.Status === 'Mapped and verified' || i.Status === 'APPROVED').length;
   const validate = state.items.filter(i => i.Status === 'Need to Validate').length;
-  const pending = state.items.filter(i => i.Status === 'Neeed to Map' || i.Status === 'PENDING_REVIEW').length;
+  const pending = state.items.filter(i => i.Status === 'Need to Map' || i.Status === 'Neeed to Map' || i.Status === 'PENDING_REVIEW').length;
   const mapped = state.items.filter(i => i.Status === 'Mapped' || i.Status === 'AI Matched').length;
   const notAvail = state.items.filter(i => i.Status === 'Not Available').length;
 
@@ -1555,7 +1628,7 @@ function updateExportSummary() {
   const total = state.items.length;
   const verified = state.items.filter(i => i.Status === 'Mapped and verified' || i.Status === 'APPROVED' || i.Status === 'Mapped').length;
   const validate = state.items.filter(i => i.Status === 'Need to Validate').length;
-  const pending = state.items.filter(i => i.Status === 'Neeed to Map' || i.Status === 'PENDING_REVIEW').length;
+  const pending = state.items.filter(i => i.Status === 'Need to Map' || i.Status === 'Neeed to Map' || i.Status === 'PENDING_REVIEW').length;
   const notAvail = state.items.filter(i => i.Status === 'Not Available').length;
 
   document.getElementById('export-summary-box').innerHTML = `
@@ -1563,7 +1636,7 @@ function updateExportSummary() {
       <p><strong>Total Supplier Items:</strong> ${total.toLocaleString()}</p>
       <p><strong>Mapped and verified:</strong> ${verified.toLocaleString()}</p>
       <p><strong>Need to Validate:</strong> ${validate.toLocaleString()}</p>
-      <p><strong>Neeed to Map:</strong> ${pending.toLocaleString()}</p>
+      <p><strong>Need to Map:</strong> ${pending.toLocaleString()}</p>
       <p><strong>Marked as Not Available:</strong> ${notAvail.toLocaleString()}</p>
     </div>
   `;
@@ -1607,7 +1680,7 @@ function downloadMappedCSV() {
     const rxpName = item.Status === 'Not Available' ? '' : (item['RXP Name'] || (m ? `"${m.master_product_name.replace(/"/g, '""')}"` : ''));
     const rxpPack = item.Status === 'Not Available' ? '' : (item['RXP Pack Size'] || (m ? `"${(m.master_packaging||'').replace(/"/g, '""')}"` : ''));
     
-    let statusText = item.Status || 'Neeed to Map';
+    let statusText = item.Status || 'Need to Map';
 
     csv += `"${item.ITEMCODE}","${(item.ITEMNAME||'').replace(/"/g, '""')}","${item.PACKING}","${(item.CONTENT||'').replace(/"/g, '""')}","${item.COMPANYNAME}","${item.SALERATE}","${item.MRP}","${rxpCode}",${rxpName},${rxpPack},"${statusText}"\n`;
   });
@@ -1624,7 +1697,7 @@ function downloadMappedCSV() {
 
 // Sync Mappings to Supabase Table
 async function syncToSupabase() {
-  const mappedItems = state.items.filter(i => i.Status !== 'Neeed to Map' && i.Status !== 'PENDING_REVIEW');
+  const mappedItems = state.items.filter(i => i.Status !== 'Need to Map' && i.Status !== 'Neeed to Map' && i.Status !== 'PENDING_REVIEW');
   if (mappedItems.length === 0) {
     alert('No items mapped yet to sync!');
     return;

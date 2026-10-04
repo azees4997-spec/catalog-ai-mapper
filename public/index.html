@@ -72,8 +72,10 @@
     }
     function openSheetConfigModal() {
       var urlInput = document.getElementById('sheet-url-config-input');
+      var url5Input = document.getElementById('sheet5-url-config-input');
       var nameInput = document.getElementById('sheet-name-config-input');
       if (urlInput && window.state) urlInput.value = window.state.sheetUrl || 'https://docs.google.com/spreadsheets/d/1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8/edit?gid=691679338#gid=691679338';
+      if (url5Input && window.state) url5Input.value = window.state.sheet5Url || '';
       if (nameInput && window.state) nameInput.value = window.state.sheetName || 'Sheet4';
       openModal('sheet-config-modal');
     }
@@ -125,6 +127,12 @@
 
     // Modal Backdrop Close & Escape Key Listener
     document.addEventListener('DOMContentLoaded', function() {
+      const savedMapperName = localStorage.getItem('catalog_mapper_name');
+      if (savedMapperName) {
+        const input = document.getElementById('mapper-name-input');
+        if (input) input.value = savedMapperName;
+      }
+
       document.addEventListener('click', function(e) {
         if (e.target.classList && e.target.classList.contains('modal-overlay')) {
           closeModal(e.target.id);
@@ -293,8 +301,545 @@
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>Google Sheet Web URL / Link:</label>
-            <input type="url" id="sheet-url-config-input" class="form-input large" placeholder="https://docs.google.com/spreadsheets/d/1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8/edit#gid=691679338">
+            <label>Google Sheet Web URL / Link (Sheet4):</label>
+            <input type="url" id="sheet-url-config-input" class="form-input large" placeholder="https://docs.google.com/spreadsheets/d/.../edit#gid=691679338">
+          </div>
+          <div class="form-group">
+            <label>Recommendations URL / Link (Sheet5):</label>
+            <input type="url" id="sheet5-url-config-input" class="form-input large" placeholder="https://docs.google.com/spreadsheets/d/.../edit#gid=12345678">
+            <small style="color:var(--text-muted); display:block; margin-top:4px;">Create a blank tab named "Sheet5", copy its URL here. AI Candidates will be saved here.</small>
+          </div>
+          <div class="form-group">
+            <label>Sheet Tab Name:</label>
+            <input type="text" id="sheet-name-config-input" class="form-input" placeholder="Sheet4" value="Sheet4">
+          </div>
+          <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="btn btn-primary" style="flex: 1;" onclick="saveSheetConfigAndFetch()">
+              ⚡ Connect & Fetch Sheet Data
+            </button>
+            <button class="btn btn-success" style="flex: 1;" onclick="toggleLockSheetData(); closeModal('sheet-config-modal');">
+              🔒 Lock Current Sheet Data
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 1: Import Modal -->
+    <div id="import-modal" class="modal-overlay hidden" style="display: none;">
+      <div class="modal-card wide">
+        <div class="modal-header">
+          <div>
+            <h3>Import Supplier Catalog Data</h3>
+            <p class="modal-subtitle">Load rows directly from Google Sheet Sheet4 or upload CSV</p>
+          </div>
+          <button class="close-btn" id="close-import-modal" onclick="closeModal('import-modal')">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="import-options-tabs">
+            <button class="import-tab-btn active" data-import-tab="paste">📋 Paste Google Sheet Data</button>
+            <button class="import-tab-btn" data-import-tab="sample">⚡ Sample Supplier Items</button>
+            <button class="import-tab-btn" data-import-tab="csv">📄 Upload CSV File</button>
+          </div>
+
+          <!-- Tab 1: Paste Sheet Rows -->
+          <div id="import-tab-paste" class="import-tab-content active">
+            <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 10px;">
+              Copy your columns directly from Google Sheet Sheet4 and paste them below:
+            </p>
+            <textarea id="paste-sheet-input" class="form-input" style="height: 180px; font-family: monospace; font-size: 0.8rem;" placeholder="Paste copied Google Sheet rows here (ITEMCODE, ITEMNAME, PACKING, CONTENT, COMPANYNAME, SALERATE, MRP, RXP Code, RXP Name, RXP Pack Size, Status)..."></textarea>
+            <button class="btn btn-primary btn-block" id="btn-parse-pasted-sheet" style="margin-top: 14px;">
+              ⚡ Parse Pasted Google Sheet Data
+            </button>
+          </div>
+
+          <!-- Tab 2: Sample Data -->
+          <div id="import-tab-sample" class="import-tab-content">
+            <div class="sample-preview-box">
+              <strong>Sample Supplier Catalog Items (7 Products)</strong>
+              <ul>
+                <li>A RET 0.025 GEL (TRETINOIN) - INVIDA INDIA PVT LIMITED</li>
+                <li>OLESOFT MAX LOTION (LIQUID PARAFFIN) - ALKEM DERMACARE</li>
+                <li>HEXILAK GEL (ALLANTOIN+EXTRACTUM CEPAE) - INVIDA INDIA</li>
+                <li>HYDE CREAM (HYDROQUINONE) - INVIDA INDIA PVT LIMITED</li>
+                <li>PODOWART PAINT (ALOEVERA+BENZOIC ACID) - INVIDA INDIA</li>
+              </ul>
+            </div>
+            <button class="btn btn-primary btn-block" id="btn-load-sample">
+              ⚡ Load Sample Catalog Data
+            </button>
+          </div>
+
+          <!-- Tab 3: CSV File -->
+          <div id="import-tab-csv" class="import-tab-content">
+            <div class="drop-zone" id="drop-zone">
+              <div class="drop-icon">📁</div>
+              <p>Drag & Drop your Supplier CSV file here, or click to browse</p>
+              <input type="file" id="csv-file-input" accept=".csv,.tsv,.txt" style="display: none;">
+              <button class="btn btn-secondary" onclick="document.getElementById('csv-file-input').click()" style="margin-top: 14px;">Choose CSV File</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 2: Custom Logic Rules Modal -->
+    <div id="logic-modal" class="modal-overlay hidden" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <h3>Custom Logic Rules</h3>
+            <p class="modal-subtitle">Adjust confidence weights & auto-approval thresholds</p>
+          </div>
+          <button class="close-btn" id="close-logic-modal" onclick="closeModal('logic-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Product Name Match Weight (45% default)</label>
+            <input type="range" min="0" max="100" value="45" class="form-input" id="weight-name">
+          </div>
+          <div class="form-group">
+            <label>Composition / Content Weight (40% default)</label>
+            <input type="range" min="0" max="100" value="40" class="form-input" id="weight-content">
+          </div>
+          <div class="form-group">
+            <label>Minimum Confidence Threshold for Auto-Mapping (75%)</label>
+            <input type="number" value="75" class="form-input" id="min-confidence-input">
+          </div>
+          <button class="btn btn-primary btn-block" onclick="closeModal('logic-modal'); alert('Logic rules updated successfully!');">
+            Save Logic Configuration
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 3: Google Sheet Webhook Sync Modal -->
+    <div id="webhook-modal" class="modal-overlay hidden" style="display: none;">
+      <div class="modal-card wide">
+        <div class="modal-header">
+          <div>
+            <h3>⚡ Real-Time Google Sheet Webhook Sync</h3>
+            <p class="modal-subtitle">Connect UI stage transitions directly to Google Sheet Sheet4</p>
+          </div>
+          <button class="close-btn" id="close-webhook-modal" onclick="closeModal('webhook-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label style="font-weight: 700; color: var(--primary);">Google Apps Script Webhook URL:</label>
+            <div style="display: flex; gap: 8px; margin-top: 6px;">
+              <input type="url" id="webhook-url-input" class="form-input large" style="flex: 1; user-select: text;" placeholder="https://script.google.com/macros/s/.../exec">
+              <button class="btn btn-secondary btn-sm" onclick="pasteWebhookFromClipboard()">📋 Paste URL</button>
+            </div>
+            <p class="help-text" style="margin-top: 6px;">
+              Paste your deployed Apps Script Webhook URL above. Every stage transition (<strong>MAP</strong>, <strong>ACCEPT</strong>, <strong>REJECT</strong>) will sync directly to Google Sheet Sheet4 in real-time!
+            </p>
+          </div>
+
+          <div style="background: var(--bg-dark); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <strong style="font-size: 0.9rem; color: var(--text-main);">Google Apps Script Code for Sheet4 (Extensions -> Apps Script):</strong>
+              <button class="btn btn-secondary btn-sm" id="btn-copy-script-code">📋 Copy Code</button>
+            </div>
+            <textarea id="apps-script-code" class="form-input" style="height: 220px; font-family: monospace; font-size: 0.78rem;" readonly>
+function doPost(e) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet4 = ss.getSheetByName("Sheet4") || ss.getSheets()[0];
+    var sheet5 = ss.getSheetByName("Sheet5");
+    
+    // Create Sheet5 if it doesn't exist
+    if (!sheet5) {
+      sheet5 = ss.insertSheet("Sheet5");
+      sheet5.getRange(1, 1, 1, 14).setValues([["ITEMCODE", "Supplier Name", "Cand1 Code", "Cand1 Name", "Cand1 Pack", "Cand1 Content", "Cand2 Code", "Cand2 Name", "Cand2 Pack", "Cand2 Content", "Cand3 Code", "Cand3 Name", "Cand3 Pack", "Cand3 Content"]]);
+      sheet5.getRange(1, 1, 1, 14).setFontWeight("bold");
+    }
+
+    var data = JSON.parse(e.postData.contents);
+    var rows = Array.isArray(data) ? data : [data];
+    if (rows.length === 0) return ContentService.createTextOutput(JSON.stringify({status: "ok"})).setMimeType(ContentService.MimeType.JSON);
+    
+    var lastRow4 = sheet4.getLastRow();
+    
+    // Default columns for Sheet4
+    var rxpCodeCol = 8; // H
+    var rxpNameCol = 9; // I
+    var rxpPackCol = 10; // J
+    var statusCol = 11; // K
+    
+    var headers4 = lastRow4 >= 1 ? sheet4.getRange(1, 1, 1, sheet4.getLastColumn()).getValues()[0] : [];
+    for (var h = 0; h < headers4.length; h++) {
+      var hText = String(headers4[h]).trim().toUpperCase();
+      if (hText === 'RXP CODE') rxpCodeCol = h + 1;
+      if (hText === 'RXP NAME') rxpNameCol = h + 1;
+      if (hText === 'RXP PACK SIZE' || hText === 'RXP PACK') rxpPackCol = h + 1;
+      if (hText === 'STATUS') statusCol = h + 1;
+    }
+
+    var itemCodes4 = lastRow4 > 1 ? sheet4.getRange(2, 1, lastRow4 - 1, 1).getValues() : [];
+    
+    // For Sheet5, map existing items to their rows
+    var lastRow5 = sheet5.getLastRow();
+    var itemCodes5 = lastRow5 > 1 ? sheet5.getRange(2, 1, lastRow5 - 1, 1).getValues() : [];
+    var sheet5Map = {};
+    for (var k = 0; k < itemCodes5.length; k++) {
+      sheet5Map[String(itemCodes5[k][0]).trim()] = k + 2;
+    }
+    
+    rows.forEach(function(row) {
+      // 1. Update Sheet4
+      for (var i = 0; i < itemCodes4.length; i++) {
+        if (String(itemCodes4[i][0]).trim() === String(row.ITEMCODE).trim()) {
+          var targetRow4 = i + 2;
+          sheet4.getRange(targetRow4, rxpCodeCol).setValue(row['RXP Code'] || '');
+          sheet4.getRange(targetRow4, rxpNameCol).setValue(row['RXP Name'] || '');
+          sheet4.getRange(targetRow4, rxpPackCol).setValue(row['RXP Pack Size'] || '');
+          sheet4.getRange(targetRow4, statusCol).setValue(row.Status || 'Need to Map');
+          if (row.MapperName !== undefined) sheet4.getRange(targetRow4, 12).setValue(row.MapperName || '');
+          break;
+        }
+      }
+      
+      // 2. Update Sheet5 if candidates exist
+      if (row.candidates && row.candidates.length > 0) {
+        var c1 = row.candidates[0] || {};
+        var c2 = row.candidates[1] || {};
+        var c3 = row.candidates[2] || {};
+        
+        var rowData5 = [
+          row.ITEMCODE || '',
+          row.ITEMNAME || '',
+          c1.master_product_id || '', c1.master_product_name || '', c1.master_packaging || '', c1.master_composition || '',
+          c2.master_product_id || '', c2.master_product_name || '', c2.master_packaging || '', c2.master_composition || '',
+          c3.master_product_id || '', c3.master_product_name || '', c3.master_packaging || '', c3.master_composition || ''
+        ];
+        
+        var targetRow5 = sheet5Map[String(row.ITEMCODE).trim()];
+        if (targetRow5) {
+          sheet5.getRange(targetRow5, 1, 1, 14).setValues([rowData5]);
+        } else {
+          sheet5.appendRow(rowData5);
+          sheet5Map[String(row.ITEMCODE).trim()] = sheet5.getLastRow();
+        }
+      }
+    });
+    
+    return ContentService.createTextOutput(JSON.stringify({status: "success", updated: rows.length})).setMimeType(ContentService.MimeType.JSON);
+    
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({error: err.toString()})).setMimeType(ContentService.MimeType.JSON);
+  }
+}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Supplier Catalog AI Mapper & Verification System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    function openModal(id) {
+      var el = document.getElementById(id);
+      if (el) {
+        el.classList.remove('hidden');
+        el.style.display = 'flex';
+      }
+    }
+    function closeModal(id) {
+      var el = document.getElementById(id);
+      if (el) {
+        el.classList.add('hidden');
+        el.style.display = 'none';
+      }
+    }
+    function openExportModal() {
+      if (window.updateExportSummary) window.updateExportSummary();
+      openModal('export-modal');
+    }
+    function updateMapperName(val) {
+      if (window.state) window.state.mapperName = val.trim();
+      localStorage.setItem('catalog_mapper_name', val.trim());
+    }
+    function forceFetchLiveGoogleSheet() {
+      if (window.state) {
+        window.state.isSheetLocked = false;
+        localStorage.setItem('catalog_sheet_locked', 'false');
+        if (window.updateLockUI) window.updateLockUI();
+      }
+      localStorage.removeItem('catalog_saved_items');
+      if (window.autoFetchGoogleSheetData) {
+        window.autoFetchGoogleSheetData(false);
+      }
+    }
+    function openGoogleSheetLink(e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      var url = (window.state && window.state.sheetUrl) ? window.state.sheetUrl : 'https://docs.google.com/spreadsheets/d/1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8/edit#gid=691679338';
+      window.open(url, '_blank');
+    }
+    function selectFilterTab(filterKey) {
+      if (window.state) window.state.currentFilter = filterKey;
+      document.querySelectorAll('.tab-btn').forEach(function(btn) {
+        if (btn.getAttribute('data-filter') === filterKey) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+      if (window.renderTable) window.renderTable();
+    }
+    function pasteWebhookFromClipboard() {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        navigator.clipboard.readText().then(function(text) {
+          var input = document.getElementById('webhook-url-input');
+          if (input && text) {
+            input.value = text.trim();
+            if (window.state) window.state.webhookUrl = text.trim();
+            localStorage.setItem('catalog_webhook_url', text.trim());
+          }
+        });
+      }
+    }
+    function openSheetConfigModal() {
+      var urlInput = document.getElementById('sheet-url-config-input');
+      var url5Input = document.getElementById('sheet5-url-config-input');
+      var nameInput = document.getElementById('sheet-name-config-input');
+      if (urlInput && window.state) urlInput.value = window.state.sheetUrl || 'https://docs.google.com/spreadsheets/d/1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8/edit?gid=691679338#gid=691679338';
+      if (url5Input && window.state) url5Input.value = window.state.sheet5Url || '';
+      if (nameInput && window.state) nameInput.value = window.state.sheetName || 'Sheet4';
+      openModal('sheet-config-modal');
+    }
+    function openWebhookModal() {
+      var modal = document.getElementById('webhook-modal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+      }
+      var input = document.getElementById('webhook-url-input');
+      if (input && window.state && window.state.webhookUrl) {
+        input.value = window.state.webhookUrl;
+      } else if (input && localStorage.getItem('catalog_webhook_url')) {
+        input.value = localStorage.getItem('catalog_webhook_url');
+      }
+    }
+    function saveWebhookUrl() {
+      var input = document.getElementById('webhook-url-input');
+      if (!input) return;
+      var url = input.value.trim();
+      if (window.state) window.state.webhookUrl = url;
+      localStorage.setItem('catalog_webhook_url', url);
+      closeModal('webhook-modal');
+      alert('⚡ Google Sheet Webhook Sync enabled!\n\nYour UI stage transitions will now sync directly to Sheet4 in real-time.');
+    }
+    function copyAppsScriptCode() {
+      var code = document.getElementById('apps-script-code').value;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(function() {
+          alert('📋 Google Apps Script code copied to clipboard!\n\nPaste it inside Google Sheets -> Extensions -> Apps Script.');
+        });
+      } else {
+        var textarea = document.getElementById('apps-script-code');
+        textarea.select();
+        document.execCommand('copy');
+        alert('📋 Google Apps Script code copied to clipboard!');
+      }
+    }
+    function toggleTheme() {
+      var isLight = document.body.classList.toggle('light-mode');
+      localStorage.setItem('catalog_theme', isLight ? 'light' : 'dark');
+      var btnText = document.getElementById('theme-toggle-text');
+      var btnIcon = document.getElementById('theme-toggle-icon');
+      if (btnText && btnIcon) {
+        btnText.textContent = isLight ? 'Dark Mode' : 'Light Mode';
+        btnIcon.textContent = isLight ? '🌙' : '☀️';
+      }
+    }
+
+    // Modal Backdrop Close & Escape Key Listener
+    document.addEventListener('DOMContentLoaded', function() {
+      const savedMapperName = localStorage.getItem('catalog_mapper_name');
+      if (savedMapperName) {
+        const input = document.getElementById('mapper-name-input');
+        if (input) input.value = savedMapperName;
+      }
+
+      document.addEventListener('click', function(e) {
+        if (e.target.classList && e.target.classList.contains('modal-overlay')) {
+          closeModal(e.target.id);
+        }
+      });
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          document.querySelectorAll('.modal-overlay').forEach(function(m) {
+            closeModal(m.id);
+          });
+        }
+      });
+
+      // Restore theme on load
+      if (localStorage.getItem('catalog_theme') === 'light') {
+        document.body.classList.add('light-mode');
+        var btnText = document.getElementById('theme-toggle-text');
+        var btnIcon = document.getElementById('theme-toggle-icon');
+        if (btnText && btnIcon) {
+          btnText.textContent = 'Dark Mode';
+          btnIcon.textContent = '🌙';
+        }
+      }
+    });
+  </script>
+</head>
+<body>
+  <div id="app">
+    <!-- Top Header Navigation -->
+    <header class="navbar">
+      <div class="navbar-top-row">
+        <div class="brand">
+          <div class="logo-icon">✨</div>
+          <div>
+            <h1>Catalog AI Mapper</h1>
+            <p class="subtitle">Google Sheets & Supabase Master Database Synchronizer</p>
+          </div>
+        </div>
+        
+        <div class="system-status">
+          <div class="status-pill connected" title="Connected to Supabase Project rhxrtsjocqizhxqhbzgu">
+            <span class="status-dot"></span>
+            <span>Supabase: <strong>June_Data</strong> (743k)</span>
+          </div>
+          <div class="status-pill active" id="sheet-status-pill" style="cursor: pointer;" onclick="forceFetchLiveGoogleSheet()" title="Click to fetch live rows directly from Google Sheet Sheet4">
+            <span class="status-dot"></span>
+            <span id="sheet-name-text">Google Sheet: <strong id="header-sheet-name">Sheet4</strong> <span id="sheet-lock-badge" style="color: #34d399; font-size: 0.8rem; margin-left: 4px;"></span></span>
+            <span style="margin-left: 6px; font-size: 0.85rem; opacity: 0.8;" onclick="event.stopPropagation(); openSheetConfigModal();" title="Configure Google Sheet Link & Name">⚙️</span>
+          </div>
+          <div class="status-pill active mapper-pill" style="background: rgba(99, 102, 241, 0.22); border-color: rgba(99, 102, 241, 0.5); box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);" title="Enter your Name or Email to tag all your mapping decisions">
+            <span style="font-size: 0.82rem; color: #a5b4fc; font-weight: 700;">👤 Mapper:</span>
+            <input type="text" id="mapper-name-input" oninput="updateMapperName(this.value)" placeholder="Your Name / Email..." style="background: transparent; border: none; color: #ffffff; font-weight: 700; font-size: 0.82rem; outline: none; width: 140px;">
+          </div>
+        </div>
+      </div>
+
+      <div class="navbar-bottom-row">
+        <div class="header-actions">
+          <button class="btn btn-secondary" id="btn-refresh-sheet" onclick="forceFetchLiveGoogleSheet()" title="Fetch fresh live rows directly from Google Sheet Sheet4">
+            <span class="icon">🔄</span> Refresh Sheet
+          </button>
+          <button class="btn btn-secondary" id="btn-lock-sheet" onclick="toggleLockSheetData()" title="Lock Sheet Data so page reloads do not wipe state">
+            <span id="lock-icon">🔓</span> <span id="lock-text">Lock Sheet</span>
+          </button>
+          <button class="btn btn-secondary" id="btn-theme-toggle" onclick="toggleTheme()" title="Toggle Light/Dark Theme">
+            <span class="icon" id="theme-toggle-icon">☀️</span> <span id="theme-toggle-text">Light Mode</span>
+          </button>
+          <button class="btn btn-secondary" id="btn-webhook-modal" onclick="openWebhookModal()" style="background: rgba(99, 102, 241, 0.15); border-color: var(--primary); color: #a5b4fc; font-weight: 700;">
+            <span class="icon">⚡</span> Webhook Sync
+          </button>
+          <button class="btn btn-secondary" id="btn-logic-modal" onclick="openModal('logic-modal')">
+            <span class="icon">⚙️</span> Custom Logic Rules
+          </button>
+          <button class="btn btn-secondary" id="btn-import-modal" onclick="openModal('import-modal')">
+            <span class="icon">📂</span> Import Sheet / CSV
+          </button>
+          <button class="btn btn-secondary" id="btn-export-modal" onclick="openExportModal()">
+            <span class="icon">📥</span> Export Mapped Data
+          </button>
+          <button class="btn btn-primary" id="btn-run-ai-match" onclick="startBatchMatchingProcess()">
+            <span class="icon">⚡</span> Run AI Batch Match
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Progress Notification Bar -->
+    <div id="progress-bar-container" class="progress-bar-container hidden" style="display: none;">
+      <div class="progress-info">
+        <span id="progress-text">AI Matching in progress against Supabase June_Data (743k products)...</span>
+        <span id="progress-percent">0%</span>
+      </div>
+      <div class="progress-track">
+        <div id="progress-fill" class="progress-fill" style="width: 0%;"></div>
+      </div>
+    </div>
+
+    <!-- Main Container -->
+    <main class="main-container">
+
+      <!-- Metrics KPI Dashboard: Total Supplier Items, AI Mapped, Need to Validate, Mapped and verified, Not Available -->
+      <section class="kpi-grid">
+        <div class="kpi-card" style="cursor: pointer;" onclick="selectFilterTab('NEED_MAP')" title="Click to view Unmapped Supplier Items">
+          <div class="kpi-title">Need to Map</div>
+          <div class="kpi-value" id="kpi-total">0</div>
+          <div class="kpi-subtitle">Unmapped Items Awaiting AI</div>
+        </div>
+        <div class="kpi-card nearest" style="cursor: pointer;" onclick="selectFilterTab('MAPPED')" title="Click to view AI Mapped Candidates">
+          <div class="kpi-title">AI Mapped</div>
+          <div class="kpi-value" id="kpi-mapped">0</div>
+          <div class="kpi-subtitle">Candidate Suggestions Ready</div>
+        </div>
+        <div class="kpi-card validate" style="cursor: pointer;" onclick="selectFilterTab('VALIDATE')" title="Click to view Need to Validate">
+          <div class="kpi-title">Need to Validate</div>
+          <div class="kpi-value" id="kpi-validate">0</div>
+          <div class="kpi-subtitle">Awaiting Accept / Reject</div>
+        </div>
+        <div class="kpi-card verified" style="cursor: pointer;" onclick="selectFilterTab('VERIFIED')" title="Click to view Mapped and Verified">
+          <div class="kpi-title">Mapped and verified</div>
+          <div class="kpi-value" id="kpi-approved">0</div>
+          <div class="kpi-subtitle">Accepted & Locked Mappings</div>
+        </div>
+        <div class="kpi-card not-avail" style="cursor: pointer;" onclick="selectFilterTab('NOT_AVAILABLE')" title="Click to view Not Available">
+          <div class="kpi-title">Not Available</div>
+          <div class="kpi-value" id="kpi-not-avail">0</div>
+          <div class="kpi-subtitle">Item Not in Master Catalog</div>
+        </div>
+      </section>
+
+      <!-- Filter & Search Toolbar: 4 Stages -->
+      <section class="toolbar">
+        <div class="filter-tabs">
+          <button class="tab-btn active" data-filter="ALL">All Items (<span id="tab-count-all">0</span>)</button>
+          <button class="tab-btn" data-filter="NEED_MAP">Need to Map (<span id="tab-count-pending">0</span>)</button>
+          <button class="tab-btn" data-filter="MAPPED">AI Mapped Candidates (<span id="tab-count-mapped">0</span>)</button>
+          <button class="tab-btn" data-filter="VALIDATE">Need to Validate (<span id="tab-count-validate">0</span>)</button>
+          <button class="tab-btn" data-filter="VERIFIED">Mapped and verified (<span id="tab-count-verified">0</span>)</button>
+          <button class="tab-btn" data-filter="NOT_AVAILABLE">Not Available (<span id="tab-count-notavail">0</span>)</button>
+        </div>
+
+        <div class="search-box-wrapper">
+          <input type="text" id="search-input" class="search-input" placeholder="Filter by ITEMNAME, ITEMCODE, CONTENT, COMPANYNAME, RXP Code...">
+        </div>
+      </section>
+
+      <!-- Stage-Specific Render Container -->
+      <section class="cards-section">
+        <div id="mapping-table-body" class="cards-view-container">
+          <!-- Stage 1: Supplier Item Header Only -->
+          <!-- Stage 2: Supplier Header + 3-4 Candidate Cards with CTA [MAP] -->
+          <!-- Stage 3: Side-by-Side 2 Cards (Supplier & Mapped RXP) with CTAs [ACCEPT] & [REJECT] -->
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Modal 0: Google Sheet Link & Tab Name Configuration Modal -->
+    <div id="sheet-config-modal" class="modal-overlay hidden" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <h3>🔗 Google Sheet Link & Tab Configuration</h3>
+            <p class="modal-subtitle">Connect your Google Sheet URL and Tab Name (Sheet4)</p>
+          </div>
+          <button class="close-btn" onclick="closeModal('sheet-config-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Google Sheet Web URL / Link (Sheet4):</label>
+            <input type="url" id="sheet-url-config-input" class="form-input large" placeholder="https://docs.google.com/spreadsheets/d/.../edit#gid=691679338">
+          </div>
+          <div class="form-group">
+            <label>Recommendations URL / Link (Sheet5):</label>
+            <input type="url" id="sheet5-url-config-input" class="form-input large" placeholder="https://docs.google.com/spreadsheets/d/.../edit#gid=12345678">
+            <small style="color:var(--text-muted); display:block; margin-top:4px;">Create a blank tab named "Sheet5", copy its URL here. AI Candidates will be saved here.</small>
           </div>
           <div class="form-group">
             <label>Sheet Tab Name:</label>
@@ -443,17 +988,17 @@ function doPost(e) {
     
     // Dynamically detect column indices from Row 1 Headers
     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    var rxpCodeCol = 7; // Default Col G (7)
-    var rxpNameCol = 8; // Default Col H (8)
-    var rxpPackCol = 9; // Default Col I (9)
-    var statusCol = 10; // Default Col J (10)
+    var rxpCodeCol = 8; // Default Col H (8)
+    var rxpNameCol = 9; // Default Col I (9)
+    var rxpPackCol = 10; // Default Col J (10)
+    var statusCol = 11; // Default Col K (11)
     
     for (var h = 0; h < headers.length; h++) {
       var hText = String(headers[h]).trim().toUpperCase();
-      if (hText.indexOf('RXP CODE') !== -1 || (hText.indexOf('RXP') !== -1 && hText.indexOf('CODE') !== -1)) rxpCodeCol = h + 1;
-      if (hText.indexOf('RXP NAME') !== -1 || (hText.indexOf('RXP') !== -1 && hText.indexOf('NAME') !== -1)) rxpNameCol = h + 1;
-      if (hText.indexOf('RXP PACK') !== -1 || (hText.indexOf('RXP') !== -1 && hText.indexOf('PACK') !== -1)) rxpPackCol = h + 1;
-      if (hText.indexOf('STATUS') !== -1) statusCol = h + 1;
+      if (hText === 'RXP CODE') rxpCodeCol = h + 1;
+      if (hText === 'RXP NAME') rxpNameCol = h + 1;
+      if (hText === 'RXP PACK SIZE' || hText === 'RXP PACK') rxpPackCol = h + 1;
+      if (hText === 'STATUS') statusCol = h + 1;
     }
 
     var itemCodes = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
@@ -464,7 +1009,14 @@ function doPost(e) {
           sheet.getRange(targetRow, rxpCodeCol).setValue(row['RXP Code'] || '');
           sheet.getRange(targetRow, rxpNameCol).setValue(row['RXP Name'] || '');
           sheet.getRange(targetRow, rxpPackCol).setValue(row['RXP Pack Size'] || '');
-          sheet.getRange(targetRow, statusCol).setValue(row.Status || 'Neeed to Map');
+          sheet.getRange(targetRow, statusCol).setValue(row.Status || 'Need to Map');
+          
+          if (row.candidatesJSON !== undefined) {
+             sheet.getRange(targetRow, 23).setValue(row.candidatesJSON || ''); // W column
+          }
+          if (row.MapperName !== undefined) {
+             sheet.getRange(targetRow, 12).setValue(row.MapperName || ''); // L column
+          }
           break;
         }
       }
