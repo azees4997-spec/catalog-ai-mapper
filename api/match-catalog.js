@@ -171,22 +171,23 @@ async function findCandidatesForSupplierItem(item, rules = defaultRules) {
   let candidates = [];
 
   if (meta.brandPrefix) {
-    const queryUrl1 = `${MASTER_TABLE}?select=*&Product%20Name=ilike.${encodeURIComponent(meta.brandPrefix)}%25&limit=15`;
+    const titleBrand = toTitleCase(meta.brandPrefix);
+    const queryUrl1 = `${MASTER_TABLE}?select=*&Product%20Name=like.${encodeURIComponent(titleBrand)}%25&limit=15`;
     const res1 = await querySupabase(queryUrl1);
     if (Array.isArray(res1) && res1.length > 0) {
       candidates.push(...res1);
     }
 
     if (candidates.length === 0 && meta.brandTokens.length > 1) {
-      const twoWord = `${meta.brandTokens[0]} ${meta.brandTokens[1]}`;
-      const queryUrl2 = `${MASTER_TABLE}?select=*&Product%20Name=ilike.${encodeURIComponent(twoWord)}%25&limit=15`;
+      const twoWord = `${toTitleCase(meta.brandTokens[0])} ${toTitleCase(meta.brandTokens[1])}`;
+      const queryUrl2 = `${MASTER_TABLE}?select=*&Product%20Name=like.${encodeURIComponent(twoWord)}%25&limit=15`;
       const res2 = await querySupabase(queryUrl2);
       if (Array.isArray(res2) && res2.length > 0) candidates.push(...res2);
     }
 
     if (candidates.length === 0 && meta.brandPrefix.length >= 4) {
-      const stemBrand = meta.brandPrefix.substring(0, 4);
-      const resStem = await querySupabase(`${MASTER_TABLE}?select=*&Product%20Name=ilike.${encodeURIComponent(stemBrand)}%25&limit=15`);
+      const stemBrand = toTitleCase(meta.brandPrefix.substring(0, 4));
+      const resStem = await querySupabase(`${MASTER_TABLE}?select=*&Product%20Name=like.${encodeURIComponent(stemBrand)}%25&limit=15`);
       if (Array.isArray(resStem) && resStem.length > 0) candidates.push(...resStem);
     }
   }
@@ -194,15 +195,15 @@ async function findCandidatesForSupplierItem(item, rules = defaultRules) {
   if (candidates.length === 0 && meta.rawComp) {
     const compTokens = meta.rawComp.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 3 && !DOSAGE_STOP_WORDS.has(t.toLowerCase()));
     if (compTokens.length > 0) {
-      const compToken = compTokens[0];
-      const resComp = await querySupabase(`${MASTER_TABLE}?select=*&Composition=ilike.%25${encodeURIComponent(compToken)}%25&limit=15`);
+      const compToken = toTitleCase(compTokens[0]);
+      const resComp = await querySupabase(`${MASTER_TABLE}?select=*&Composition=like.${encodeURIComponent(compToken)}%25&limit=15`);
       if (Array.isArray(resComp)) candidates.push(...resComp);
     }
   }
 
   if (candidates.length === 0 && meta.rawName) {
-    const firstWord = meta.rawName.split(/\s+/)[0];
-    const resFallback = await querySupabase(`${MASTER_TABLE}?select=*&Product%20Name=ilike.${encodeURIComponent(firstWord)}%25&limit=10`);
+    const firstWord = toTitleCase(meta.rawName.split(/\s+/)[0]);
+    const resFallback = await querySupabase(`${MASTER_TABLE}?select=*&Product%20Name=like.${encodeURIComponent(firstWord)}%25&limit=10`);
     if (Array.isArray(resFallback)) candidates = resFallback;
   }
 
