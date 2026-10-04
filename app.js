@@ -168,9 +168,12 @@ const StorageManager = {
     });
   },
 
-  saveState: async function(items, webhookUrl) {
+  saveState: async function(items, webhookUrl, sheet5Url) {
     if (webhookUrl !== undefined) {
       localStorage.setItem('catalog_webhook_url', webhookUrl);
+    }
+    if (sheet5Url !== undefined) {
+      localStorage.setItem('catalog_sheet5_url', sheet5Url);
     }
     if (items && Array.isArray(items) && items.length > 0) {
       try {
@@ -282,7 +285,7 @@ window.toggleLockSheetData = function() {
   localStorage.setItem('catalog_sheet_locked', state.isSheetLocked);
 
   window.updateLockUI();
-  StorageManager.saveState(state.items, state.webhookUrl);
+  StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
 
   if (state.isSheetLocked) {
     alert('🔒 Sheet Data Locked!\n\nAll your items, stage transitions, and candidate suggestions are permanently protected from page refresh.');
@@ -600,7 +603,7 @@ function loadSampleData() {
 
   updateKPICounters();
   renderTable();
-  StorageManager.saveState(state.items, state.webhookUrl);
+  StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
 }
 
 // Parse Pasted Sheet Data matching exact columns with Smart Merge state preservation
@@ -716,7 +719,7 @@ function parsePastedSheetData() {
     state.items = parsedItems;
     updateKPICounters();
     renderTable();
-    StorageManager.saveState(state.items, state.webhookUrl);
+    StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
     closeModal('import-modal');
     alert(`Loaded ${parsedItems.length} supplier items from Google Sheet Sheet4!`);
   } else {
@@ -763,6 +766,7 @@ async function startBatchMatchingProcess() {
 
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {
+        const batchPayload = [];
         result.data.forEach((matchedRes) => {
           const itemIndex = state.items.findIndex(item => item.id === matchedRes.id || (item.ITEMCODE && item.ITEMCODE === matchedRes.item_code) || item.ITEMNAME === matchedRes.item_name);
           if (itemIndex !== -1) {
@@ -774,9 +778,12 @@ async function startBatchMatchingProcess() {
 
             // Stage 2: Move to 'Mapped' (AI Mapped) so candidates can be reviewed with MAP CTA!
             state.items[itemIndex].Status = 'Mapped';
-            sendWebhookUpdate(state.items[itemIndex]);
+            batchPayload.push(state.items[itemIndex]);
           }
         });
+        if (batchPayload.length > 0) {
+           sendWebhookUpdate(batchPayload);
+        }
       }
     } catch (err) {
       console.error('Batch error:', err);
@@ -791,7 +798,7 @@ async function startBatchMatchingProcess() {
     
     updateKPICounters();
     renderTable();
-    StorageManager.saveState(state.items, state.webhookUrl);
+    StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
   }
 
   state.isMatchingActive = false;
@@ -828,7 +835,7 @@ window.mapCandidateToValidation = function(itemId, masterProductId, masterProduc
   
   updateKPICounters();
   renderTable();
-  StorageManager.saveState(state.items, state.webhookUrl);
+  StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
 };
 
 // STAGE 3 ACTION: User clicks [✓ ACCEPT] in Validate Section
@@ -845,7 +852,7 @@ window.acceptValidationMatch = function(itemId) {
   
   updateKPICounters();
   renderTable();
-  StorageManager.saveState(state.items, state.webhookUrl);
+  StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
 };
 
 // STAGE 3 ACTION: User clicks [✕ REJECT] in Validate Section
@@ -865,7 +872,7 @@ window.rejectValidationMatch = function(itemId) {
 
   updateKPICounters();
   renderTable();
-  StorageManager.saveState(state.items, state.webhookUrl);
+  StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
 };
 
 // Render 3-Stage Cards View based on active Filter Tab
@@ -1118,28 +1125,27 @@ function renderTable() {
 function sendWebhookUpdate(items) {
   if (!state.webhookUrl) return;
   const itemArray = Array.isArray(items) ? items : [items];
+  if (itemArray.length === 0) return;
   const mapperName = state.mapperName || localStorage.getItem('catalog_mapper_name') || '';
 
-  itemArray.forEach(item => {
-    const payload = {
+  const payloadArray = itemArray.map(item => ({
       ITEMCODE: item.ITEMCODE,
       'RXP Code': item.Status === 'Not Available' ? '' : (item['RXP Code'] || ''),
       'RXP Name': item.Status === 'Not Available' ? '' : (item['RXP Name'] || ''),
       'RXP Pack Size': item.Status === 'Not Available' ? '' : (item['RXP Pack Size'] || ''),
       Status: item.Status || 'Need to Map',
       MapperName: mapperName,
-      candidatesJSON: item.candidates && item.candidates.length > 0 ? JSON.stringify(item.candidates) : ''
-    };
+      candidates: item.candidates || []
+  }));
 
-    try {
-      fetch(state.webhookUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).catch(err => console.error('Webhook error:', err));
-    } catch (e) {}
-  });
+  try {
+    fetch(state.webhookUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payloadArray)
+    }).catch(err => console.error('Webhook error:', err));
+  } catch (e) {}
 }
 
 window.openWebhookModal = function() {
@@ -1160,7 +1166,9 @@ window.saveWebhookUrl = function() {
   const input = document.getElementById('webhook-url-input');
   if (!input) return;
   state.webhookUrl = input.value.trim();
-  StorageManager.saveState(state.items, state.webhookUrl);
+  const input5 = document.getElementById('sheet5-url-config-input');
+  if (input5) state.sheet5Url = input5.value.trim();
+  StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
   window.updateWebhookStatusUI();
   closeModal('webhook-modal');
   alert(`⚡ Google Sheet Webhook Sync enabled!\n\nYour UI stage transitions will now update Google Sheet Sheet4 in real-time.`);
@@ -1185,7 +1193,7 @@ window.markNotAvailable = function(itemId) {
     sendWebhookUpdate(item);
     updateKPICounters();
     renderTable();
-    StorageManager.saveState(state.items, state.webhookUrl);
+    StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
   }
 };
 
@@ -1238,7 +1246,7 @@ window.selectCandidateMatch = function(masterProductId) {
     closeModal('candidate-modal');
     updateKPICounters();
     renderTable();
-    StorageManager.saveState(state.items, state.webhookUrl);
+    StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
   }
 };
 
@@ -1321,7 +1329,7 @@ window.assignCustomMasterMatch = function(id, name, composition, packaging) {
   closeModal('search-modal');
   updateKPICounters();
   renderTable();
-  StorageManager.saveState(state.items, state.webhookUrl);
+  StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
 };
 
 // CSV File Upload Handler
@@ -1492,7 +1500,7 @@ function parseCSVText(csvText, silent = false) {
     state.items = mergedItems;
     updateKPICounters();
     renderTable();
-    StorageManager.saveState(state.items, state.webhookUrl);
+    StorageManager.saveState(state.items, state.webhookUrl, state.sheet5Url);
     if (!silent) alert(`Loaded ${mergedItems.length.toLocaleString()} supplier items from Google Sheet ${state.sheetName}!`);
   }
 }
@@ -1500,6 +1508,7 @@ function parseCSVText(csvText, silent = false) {
 // Fetch Google Sheet Data from custom URL or default
 async function fetchGoogleSheetData() {
   const sheetUrl = state.sheetUrl || (document.getElementById('sheet-url-config-input') ? document.getElementById('sheet-url-config-input').value : '');
+  const sheet5Url = state.sheet5Url || (document.getElementById('sheet5-url-config-input') ? document.getElementById('sheet5-url-config-input').value : '');
   try {
     const res = await fetch(`/api/fetch-sheet?url=${encodeURIComponent(sheetUrl)}`);
     const csvData = await res.text();
@@ -1508,10 +1517,60 @@ async function fetchGoogleSheetData() {
       return;
     }
     parseCSVText(csvData);
+    
+    // Fetch Sheet5 if provided
+    if (sheet5Url) {
+       try {
+         const res5 = await fetch(`/api/fetch-sheet?url=${encodeURIComponent(sheet5Url)}`);
+         const csv5Data = await res5.text();
+         if (!csv5Data.includes('<!DOCTYPE html>')) {
+            parseSheet5CSV(csv5Data);
+         }
+       } catch(e) {
+         console.warn('Failed to fetch Sheet5:', e);
+       }
+    }
+
     closeModal('import-modal');
   } catch (err) {
     alert('Error fetching Google Sheet. Please use the Paste tab!');
   }
+}
+
+function parseSheet5CSV(csvText) {
+  const lines = csvText.split('\n');
+  if (lines.length < 2) return;
+  
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const cols = parseCSVLine(line);
+    if (cols.length < 2) continue;
+    
+    const itemCode = cols[0] ? cols[0].trim() : '';
+    const item = state.items.find(it => it.ITEMCODE === itemCode);
+    if (item) {
+       const cands = [];
+       // C1: 2(Code), 3(Name), 4(Pack), 5(Content)
+       if (cols[2] && cols[2].trim()) {
+           cands.push({ master_product_id: cols[2].trim(), master_product_name: cols[3]?cols[3].trim():'', master_packaging: cols[4]?cols[4].trim():'', master_composition: cols[5]?cols[5].trim():'', confidence_score: 95 });
+       }
+       // C2: 6(Code), 7(Name), 8(Pack), 9(Content)
+       if (cols[6] && cols[6].trim()) {
+           cands.push({ master_product_id: cols[6].trim(), master_product_name: cols[7]?cols[7].trim():'', master_packaging: cols[8]?cols[8].trim():'', master_composition: cols[9]?cols[9].trim():'', confidence_score: 90 });
+       }
+       // C3: 10(Code), 11(Name), 12(Pack), 13(Content)
+       if (cols[10] && cols[10].trim()) {
+           cands.push({ master_product_id: cols[10].trim(), master_product_name: cols[11]?cols[11].trim():'', master_packaging: cols[12]?cols[12].trim():'', master_composition: cols[13]?cols[13].trim():'', confidence_score: 85 });
+       }
+       if (cands.length > 0) {
+           item.candidates = cands;
+           item.top_match = cands[0];
+       }
+    }
+  }
+  updateKPICounters();
+  renderTable();
 }
 
 // Update KPI Counters
