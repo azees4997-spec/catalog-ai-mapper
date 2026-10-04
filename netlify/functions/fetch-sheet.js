@@ -39,7 +39,7 @@ function extractSheetIdAndGid(rawUrl) {
 exports.handler = async function(event, context) {
   const rawSheetUrl = event.queryStringParameters.url || '';
   const { sheetId, gid } = extractSheetIdAndGid(rawSheetUrl);
-  const exportUrl = \https://docs.google.com/spreadsheets/d/\/export?format=csv&gid=\\;
+  const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
 
   try {
     const csvData = await fetchUrlSmart(exportUrl);
