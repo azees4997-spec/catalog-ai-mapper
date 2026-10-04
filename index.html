@@ -452,6 +452,8 @@ function doPost(e) {
     // Create Sheet5 if it doesn't exist
     if (!sheet5) {
       sheet5 = ss.insertSheet("Sheet5");
+    }
+    if (sheet5.getLastRow() === 0) {
       sheet5.getRange(1, 1, 1, 14).setValues([["ITEMCODE", "Supplier Name", "Cand1 Code", "Cand1 Name", "Cand1 Pack", "Cand1 Content", "Cand2 Code", "Cand2 Name", "Cand2 Pack", "Cand2 Content", "Cand3 Code", "Cand3 Name", "Cand3 Pack", "Cand3 Content"]]);
       sheet5.getRange(1, 1, 1, 14).setFontWeight("bold");
     }

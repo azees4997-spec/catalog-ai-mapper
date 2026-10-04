@@ -1134,6 +1134,7 @@ function sendWebhookUpdate(items) {
 
   const payloadArray = itemArray.map(item => ({
       ITEMCODE: item.ITEMCODE,
+        ITEMNAME: item.ITEMNAME || '',
       'RXP Code': item.Status === 'Not Available' ? '' : (item['RXP Code'] || ''),
       'RXP Name': item.Status === 'Not Available' ? '' : (item['RXP Name'] || ''),
       'RXP Pack Size': item.Status === 'Not Available' ? '' : (item['RXP Pack Size'] || ''),
@@ -1529,6 +1530,8 @@ async function fetchGoogleSheetData() {
          const csv5Data = await res5.text();
          if (!csv5Data.includes('<!DOCTYPE html>')) {
             parseSheet5CSV(csv5Data);
+            updateKPICounters();
+            renderTable();
          }
        } catch(e) {
          console.warn('Failed to fetch Sheet5:', e);
@@ -1542,10 +1545,10 @@ async function fetchGoogleSheetData() {
 }
 
 function parseSheet5CSV(csvText) {
-  const lines = csvText.split('\n');
-  if (lines.length < 2) return;
-  
-  for (let i = 1; i < lines.length; i++) {
+    const lines = csvText.split('\n');
+    if (lines.length < 1) return;
+    let startIndex = (lines[0].toUpperCase().includes('ITEMCODE') || lines[0].toUpperCase().includes('SUPPLIER')) ? 1 : 0;
+    for (let i = startIndex; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
     const cols = parseCSVLine(line);
