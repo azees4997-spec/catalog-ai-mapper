@@ -449,10 +449,10 @@ function doPost(e) {
     
     // Dynamically detect column indices from Row 1 Headers
     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    var rxpCodeCol = 7; // Default Col G (7)
-    var rxpNameCol = 8; // Default Col H (8)
-    var rxpPackCol = 9; // Default Col I (9)
-    var statusCol = 10; // Default Col J (10)
+    var rxpCodeCol = 8; // Default Col H (8)
+    var rxpNameCol = 9; // Default Col I (9)
+    var rxpPackCol = 10; // Default Col J (10)
+    var statusCol = 11; // Default Col K (11)
     
     for (var h = 0; h < headers.length; h++) {
       var hText = String(headers[h]).trim().toUpperCase();
@@ -470,7 +470,14 @@ function doPost(e) {
           sheet.getRange(targetRow, rxpCodeCol).setValue(row['RXP Code'] || '');
           sheet.getRange(targetRow, rxpNameCol).setValue(row['RXP Name'] || '');
           sheet.getRange(targetRow, rxpPackCol).setValue(row['RXP Pack Size'] || '');
-          sheet.getRange(targetRow, statusCol).setValue(row.Status || 'Neeed to Map');
+          sheet.getRange(targetRow, statusCol).setValue(row.Status || 'Need to Map');
+          
+          if (row.candidatesJSON !== undefined) {
+             sheet.getRange(targetRow, 23).setValue(row.candidatesJSON || ''); // W column
+          }
+          if (row.MapperName !== undefined) {
+             sheet.getRange(targetRow, 12).setValue(row.MapperName || ''); // L column
+          }
           break;
         }
       }
