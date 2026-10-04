@@ -402,6 +402,22 @@ window.autoFetchGoogleSheetData = async function(silent = false) {
       }
 
       parseCSVText(csvData, silent);
+        
+        // --- ADDED FIX: Auto-fetch Sheet 5 on page load ---
+        if (state.sheet5Url) {
+          try {
+            const fetchUrl5 = '/api/fetch-sheet?url=' + encodeURIComponent(state.sheet5Url);
+            const res5 = await fetch(fetchUrl5).then(r => r.text());
+            if (res5.includes('<!DOCTYPE html>')) {
+              console.warn('Sheet 5 is restricted or unavailable.');
+            } else {
+              parseSheet5CSV(res5);
+            }
+          } catch(e) {
+            console.error('Auto-fetch Sheet 5 failed:', e);
+          }
+        }
+        // -------------------------------------------------
       
       if (!silent && progressBar) {
         progressFill.style.width = '100%';
