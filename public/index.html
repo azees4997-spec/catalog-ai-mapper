@@ -312,9 +312,14 @@
               <small style="color:var(--text-muted); display:block; margin-top:4px;">Create a blank tab named "Sheet5", copy its URL here. AI Candidates will be saved here.</small>
             </div>
           <div class="form-group">
-            <label>Sheet Tab Name:</label>
-            <input type="text" id="sheet-name-config-input" class="form-input" placeholder="Sheet4" value="Sheet4">
-          </div>
+<label>Apps Script Webhook URL (For Syncing Mappings):</label>
+<input type="url" id="sheet-webhook-config-input" class="form-input large" placeholder="https://script.google.com/macros/s/.../exec">
+<small style="color:var(--text-muted); display:block; margin-top:4px;">Deploy your Apps Script as a Web App and paste the URL here so the UI can auto-sync mapped items back to Google Sheets.</small>
+</div>
+<div class="form-group">
+<label>Sheet Tab Name (Usually Sheet4):</label>
+<input type="text" id="sheet-name-config-input" class="form-input" placeholder="Sheet4" value="Sheet4">
+</div>
           <div style="display: flex; gap: 10px; margin-top: 20px;">
             <button class="btn btn-primary" style="flex: 1;" onclick="saveSheetConfigAndFetch()">
               ⚡ Connect & Fetch Sheet Data
