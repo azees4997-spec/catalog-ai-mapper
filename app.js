@@ -294,7 +294,7 @@ function loadSampleData() {
   StorageManager.saveState(state.items, state.webhookUrl);
 }
 
-// Parse Pasted Sheet Data matching exact columns: ITEMCODE, ITEMNAME, PACKING, CONTENT, COMPANYNAME, SALERATE, MRP, RXP Code, RXP Name, RXP Pack Size, Status
+// Parse Pasted Sheet Data matching exact columns with Smart Merge state preservation
 function parsePastedSheetData() {
   const text = document.getElementById('paste-sheet-input').value.trim();
   if (!text) {
@@ -313,12 +313,25 @@ function parsePastedSheetData() {
     startIndex = 1;
   }
 
+  const existingMap = new Map();
+  if (Array.isArray(state.items) && state.items.length > 0) {
+    state.items.forEach(item => {
+      const key = (item.ITEMCODE || item.ITEMNAME || '').toString().trim().toUpperCase();
+      if (key) existingMap.set(key, item);
+    });
+  }
+
   const parsedItems = [];
 
   for (let i = startIndex; i < lines.length; i++) {
     const cols = lines[i].split('\t').length > 1 ? lines[i].split('\t') : lines[i].split(',');
     const cleanCols = cols.map(c => c.trim().replace(/^"|"$/g, ''));
     if (cleanCols.length < 2) continue;
+
+    const itemCode = cleanCols[0] || `ITEM-${i + 1}`;
+    const itemName = cleanCols[1] || 'Product Name';
+    const key = (itemCode || itemName).toString().trim().toUpperCase();
+    const existing = existingMap.get(key);
 
     const rxpCode = cleanCols[7] || '';
     const rxpName = cleanCols[8] || '';
@@ -339,23 +352,41 @@ function parsePastedSheetData() {
       status = 'Mapped and verified';
     }
 
-    parsedItems.push({
-      id: `item-${i + 1}`,
-      ITEMCODE: cleanCols[0] || `ITEM-${i + 1}`,
-      ITEMNAME: cleanCols[1] || 'Product Name',
-      PACKING: cleanCols[2] || '',
-      CONTENT: cleanCols[3] || '',
-      COMPANYNAME: cleanCols[4] || 'Supplier',
-      SALERATE: cleanCols[5] || '0.00',
-      MRP: cleanCols[6] || '0.00',
-      'RXP Code': rxpCode,
-      'RXP Name': rxpName,
-      'RXP Pack Size': rxpPack,
-      Status: status,
-      top_match: rxpCode ? { master_product_id: rxpCode, master_product_name: rxpName, master_packaging: rxpPack, confidence_score: 95 } : null,
-      candidates: [],
-      user_assigned_match: null
-    });
+    if (existing && (
+      existing.Status === 'Mapped' ||
+      existing.Status === 'AI Matched' ||
+      existing.Status === 'Mapped and verified' ||
+      existing.Status === 'APPROVED' ||
+      existing.Status === 'Not Available' ||
+      (existing['RXP Code'] && existing['RXP Code'].trim() !== '') ||
+      (existing.candidates && existing.candidates.length > 0)
+    )) {
+      parsedItems.push(existing);
+    } else if (existing && rxpCode) {
+      existing['RXP Code'] = rxpCode;
+      existing['RXP Name'] = rxpName;
+      existing['RXP Pack Size'] = rxpPack;
+      existing.Status = status;
+      parsedItems.push(existing);
+    } else {
+      parsedItems.push({
+        id: existing ? existing.id : `item-${i + 1}`,
+        ITEMCODE: itemCode,
+        ITEMNAME: itemName,
+        PACKING: cleanCols[2] || '',
+        CONTENT: cleanCols[3] || '',
+        COMPANYNAME: cleanCols[4] || 'Supplier',
+        SALERATE: cleanCols[5] || '0.00',
+        MRP: cleanCols[6] || '0.00',
+        'RXP Code': rxpCode,
+        'RXP Name': rxpName,
+        'RXP Pack Size': rxpPack,
+        Status: status,
+        top_match: rxpCode ? { master_product_id: rxpCode, master_product_name: rxpName, master_packaging: rxpPack, confidence_score: 95 } : null,
+        candidates: existing ? (existing.candidates || []) : [],
+        user_assigned_match: existing ? existing.user_assigned_match : null
+      });
+    }
   }
 
   if (parsedItems.length > 0) {
@@ -374,7 +405,7 @@ function parsePastedSheetData() {
 async function startBatchMatchingProcess() {
   if (state.isMatchingActive) return;
 
-  const pendingItems = state.items.filter(i => i.Status === 'Neeed to Map' || i.Status === 'PENDING_REVIEW' || i.Status === 'AI Matched');
+  const pendingItems = state.items.filter(i => (i.Status === 'Neeed to Map' || i.Status === 'PENDING_REVIEW') && (!i['RXP Code'] || i['RXP Code'].trim() === ''));
   if (pendingItems.length === 0) {
     alert('All catalog items have already been reviewed or mapped!');
     return;
@@ -420,7 +451,7 @@ async function startBatchMatchingProcess() {
               state.items[itemIndex]['RXP Pack Size'] = matchedRes.top_match.master_packaging;
             }
             if (matchedRes.top_match && matchedRes.top_match.confidence_score >= state.mappingRules.minConfidenceThreshold) {
-              state.items[itemIndex].Status = 'AI Matched';
+              state.items[itemIndex].Status = 'Mapped';
             }
           }
         });
@@ -894,7 +925,7 @@ function parseCSVLine(line) {
   return result;
 }
 
-// Parse CSV Text into Supplier Items
+// Parse CSV Text into Supplier Items (with Smart Merge to preserve local mapped decisions)
 function parseCSVText(csvText, silent = false) {
   const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
   if (lines.length < 2) {
@@ -907,10 +938,24 @@ function parseCSVText(csvText, silent = false) {
   const isHeaderRow = firstLineCols.some(c => c.toUpperCase().includes('ITEMNAME') || c.toUpperCase().includes('ITEMCODE') || c.toUpperCase().includes('CONTENT'));
   if (isHeaderRow) startIndex = 1;
 
-  const parsedItems = [];
+  // Build lookup index of existing local state items
+  const existingMap = new Map();
+  if (Array.isArray(state.items) && state.items.length > 0) {
+    state.items.forEach(item => {
+      const key = (item.ITEMCODE || item.ITEMNAME || '').toString().trim().toUpperCase();
+      if (key) existingMap.set(key, item);
+    });
+  }
+
+  const mergedItems = [];
   for (let i = startIndex; i < lines.length; i++) {
     const cols = lines[i].split('\t').length > 1 ? lines[i].split('\t') : parseCSVLine(lines[i]);
     if (cols.length < 2) continue;
+
+    const itemCode = cols[0] || `ITEM-${i + 1}`;
+    const itemName = cols[1] || 'Product Name';
+    const key = (itemCode || itemName).toString().trim().toUpperCase();
+    const existing = existingMap.get(key);
 
     const rxpCode = cols[7] || '';
     const rxpName = cols[8] || '';
@@ -931,31 +976,50 @@ function parseCSVText(csvText, silent = false) {
       status = 'Mapped and verified';
     }
 
-    parsedItems.push({
-      id: `item-${i + 1}`,
-      ITEMCODE: cols[0] || `ITEM-${i + 1}`,
-      ITEMNAME: cols[1] || 'Product Name',
-      PACKING: cols[2] || '',
-      CONTENT: cols[3] || '',
-      COMPANYNAME: cols[4] || 'Supplier',
-      SALERATE: cols[5] || '0.00',
-      MRP: cols[6] || '0.00',
-      'RXP Code': rxpCode,
-      'RXP Name': rxpName,
-      'RXP Pack Size': rxpPack,
-      Status: status,
-      top_match: rxpCode ? { master_product_id: rxpCode, master_product_name: rxpName, master_packaging: rxpPack, confidence_score: 95 } : null,
-      candidates: [],
-      user_assigned_match: null
-    });
+    // Preserve local item if it has been mapped, verified, or candidates generated
+    if (existing && (
+      existing.Status === 'Mapped' ||
+      existing.Status === 'AI Matched' ||
+      existing.Status === 'Mapped and verified' ||
+      existing.Status === 'APPROVED' ||
+      existing.Status === 'Not Available' ||
+      (existing['RXP Code'] && existing['RXP Code'].trim() !== '') ||
+      (existing.candidates && existing.candidates.length > 0)
+    )) {
+      mergedItems.push(existing);
+    } else if (existing && rxpCode) {
+      existing['RXP Code'] = rxpCode;
+      existing['RXP Name'] = rxpName;
+      existing['RXP Pack Size'] = rxpPack;
+      existing.Status = status;
+      mergedItems.push(existing);
+    } else {
+      mergedItems.push({
+        id: existing ? existing.id : `item-${i + 1}`,
+        ITEMCODE: itemCode,
+        ITEMNAME: itemName,
+        PACKING: cols[2] || '',
+        CONTENT: cols[3] || '',
+        COMPANYNAME: cols[4] || 'Supplier',
+        SALERATE: cols[5] || '0.00',
+        MRP: cols[6] || '0.00',
+        'RXP Code': rxpCode,
+        'RXP Name': rxpName,
+        'RXP Pack Size': rxpPack,
+        Status: status,
+        top_match: rxpCode ? { master_product_id: rxpCode, master_product_name: rxpName, master_packaging: rxpPack, confidence_score: 95 } : null,
+        candidates: existing ? (existing.candidates || []) : [],
+        user_assigned_match: existing ? existing.user_assigned_match : null
+      });
+    }
   }
 
-  if (parsedItems.length > 0) {
-    state.items = parsedItems;
+  if (mergedItems.length > 0) {
+    state.items = mergedItems;
     updateKPICounters();
     renderTable();
     StorageManager.saveState(state.items, state.webhookUrl);
-    if (!silent) alert(`Loaded ${parsedItems.length.toLocaleString()} supplier items from Google Sheet Sheet3!`);
+    if (!silent) alert(`Loaded ${mergedItems.length.toLocaleString()} supplier items from Google Sheet Sheet3!`);
   }
 }
 
