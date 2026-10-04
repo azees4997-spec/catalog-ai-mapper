@@ -456,10 +456,10 @@ function doPost(e) {
     
     for (var h = 0; h < headers.length; h++) {
       var hText = String(headers[h]).trim().toUpperCase();
-      if (hText.indexOf('RXP CODE') !== -1 || (hText.indexOf('RXP') !== -1 && hText.indexOf('CODE') !== -1)) rxpCodeCol = h + 1;
-      if (hText.indexOf('RXP NAME') !== -1 || (hText.indexOf('RXP') !== -1 && hText.indexOf('NAME') !== -1)) rxpNameCol = h + 1;
-      if (hText.indexOf('RXP PACK') !== -1 || (hText.indexOf('RXP') !== -1 && hText.indexOf('PACK') !== -1)) rxpPackCol = h + 1;
-      if (hText.indexOf('STATUS') !== -1) statusCol = h + 1;
+      if (hText === 'RXP CODE') rxpCodeCol = h + 1;
+      if (hText === 'RXP NAME') rxpNameCol = h + 1;
+      if (hText === 'RXP PACK SIZE' || hText === 'RXP PACK') rxpPackCol = h + 1;
+      if (hText === 'STATUS') statusCol = h + 1;
     }
 
     var itemCodes = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
