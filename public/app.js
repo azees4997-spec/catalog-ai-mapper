@@ -1312,8 +1312,42 @@ function parseCSVText(csvText, silent = false) {
 
   let startIndex = 0;
   const firstLineCols = lines[0].split('\t').length > 1 ? lines[0].split('\t') : parseCSVLine(lines[0]);
-  const isHeaderRow = firstLineCols.some(c => c.toUpperCase().includes('ITEMNAME') || c.toUpperCase().includes('ITEMCODE') || c.toUpperCase().includes('CONTENT'));
-  if (isHeaderRow) startIndex = 1;
+  // Dynamic Header Column Index Map
+  let codeIdx = 0;
+  let nameIdx = 1;
+  let packIdx = 2;
+  let contentIdx = 3;
+  let companyIdx = 4;
+  let saleRateIdx = 5;
+  let mrpIdx = 5;
+  let rxpCodeIdx = 6;
+  let rxpNameIdx = 7;
+  let rxpPackIdx = 8;
+  let statusIdx = 9;
+
+  let startIndex = 0;
+  const isHeaderRow = firstLineCols.some(c => {
+    const u = c.toUpperCase();
+    return u.includes('ITEM') || u.includes('CODE') || u.includes('NAME') || u.includes('CONTENT') || u.includes('PACK');
+  });
+
+  if (isHeaderRow) {
+    startIndex = 1;
+    firstLineCols.forEach((colStr, idx) => {
+      const u = colStr.trim().toUpperCase();
+      if (u.includes('CODE') && !u.includes('RXP')) codeIdx = idx;
+      else if ((u.includes('NAME') || u.includes('ITEM')) && !u.includes('COMPANY') && !u.includes('RXP')) nameIdx = idx;
+      else if (u.includes('PACK') && !u.includes('RXP')) packIdx = idx;
+      else if (u.includes('CONTENT') || u.includes('COMPOSITION')) contentIdx = idx;
+      else if (u.includes('COMPANY') || u.includes('MANUFACTURER') || u.includes('MFG')) companyIdx = idx;
+      else if (u.includes('RATE') || u.includes('SALE')) saleRateIdx = idx;
+      else if (u.includes('MRP')) mrpIdx = idx;
+      else if (u.includes('RXP CODE') || (u.includes('RXP') && u.includes('CODE'))) rxpCodeIdx = idx;
+      else if (u.includes('RXP NAME') || (u.includes('RXP') && u.includes('NAME'))) rxpNameIdx = idx;
+      else if (u.includes('RXP PACK') || (u.includes('RXP') && u.includes('PACK'))) rxpPackIdx = idx;
+      else if (u.includes('STATUS')) statusIdx = idx;
+    });
+  }
 
   const existingMap = new Map();
   if (Array.isArray(state.items) && state.items.length > 0) {
@@ -1328,23 +1362,15 @@ function parseCSVText(csvText, silent = false) {
     const cols = lines[i].split('\t').length > 1 ? lines[i].split('\t') : parseCSVLine(lines[i]);
     if (cols.length < 2) continue;
 
-    const itemCode = cols[0] || `ITEM-${i + 1}`;
-    const itemName = cols[1] || 'Product Name';
+    const itemCode = cols[codeIdx] || `ITEM-${i + 1}`;
+    const itemName = cols[nameIdx] || 'Product Name';
     const key = (itemCode || itemName).toString().trim().toUpperCase();
     const existing = existingMap.get(key);
 
-    const rxpCode = cols[7] || '';
-    const rxpName = cols[8] || '';
-    let rxpPack = cols[9] || '';
-    let rawStatus = cols[10] || cols[9] || '';
-
-    if (cols[9]) {
-      const c9Lower = cols[9].toLowerCase();
-      if (c9Lower.includes('map') || c9Lower.includes('validate') || c9Lower.includes('verified') || c9Lower.includes('avail') || c9Lower.includes('pending') || c9Lower.includes('neeed')) {
-        rawStatus = cols[9];
-        rxpPack = '';
-      }
-    }
+    const rxpCode = (cols[rxpCodeIdx] || '').trim();
+    const rxpName = (cols[rxpNameIdx] || '').trim();
+    const rxpPack = (cols[rxpPackIdx] || '').trim();
+    const rawStatus = (cols[statusIdx] || '').trim();
 
     const sLower = rawStatus.toLowerCase();
     let status = 'Neeed to Map';
@@ -1385,11 +1411,11 @@ function parseCSVText(csvText, silent = false) {
         id: existing ? existing.id : `item-${i + 1}`,
         ITEMCODE: itemCode,
         ITEMNAME: itemName,
-        PACKING: cols[2] || '',
-        CONTENT: cols[3] || '',
-        COMPANYNAME: cols[4] || 'Supplier',
-        SALERATE: cols[5] || '0.00',
-        MRP: cols[6] || '0.00',
+        PACKING: cols[packIdx] || '',
+        CONTENT: cols[contentIdx] || '',
+        COMPANYNAME: cols[companyIdx] || 'Supplier',
+        SALERATE: cols[saleRateIdx] || '0.00',
+        MRP: cols[mrpIdx] || '0.00',
         'RXP Code': rxpCode,
         'RXP Name': rxpName,
         'RXP Pack Size': rxpPack,

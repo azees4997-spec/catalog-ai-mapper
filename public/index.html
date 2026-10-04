@@ -417,24 +417,42 @@
               <strong style="font-size: 0.9rem; color: var(--text-main);">Google Apps Script Code for Sheet4 (Extensions -> Apps Script):</strong>
               <button class="btn btn-secondary btn-sm" id="btn-copy-script-code">📋 Copy Code</button>
             </div>
-            <textarea id="apps-script-code" class="form-input" style="height: 170px; font-family: monospace; font-size: 0.78rem;" readonly>
+            <textarea id="apps-script-code" class="form-input" style="height: 220px; font-family: monospace; font-size: 0.78rem;" readonly>
 function doPost(e) {
   try {
     var sheetName = "Sheet4";
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
     if (!sheet) sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+    
     var data = JSON.parse(e.postData.contents);
     var rows = Array.isArray(data) ? data : [data];
     var lastRow = sheet.getLastRow();
     if (lastRow <= 1) return ContentService.createTextOutput(JSON.stringify({status: "ok"})).setMimeType(ContentService.MimeType.JSON);
+    
+    // Dynamically detect column indices from Row 1 Headers
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var rxpCodeCol = 7; // Default Col G (7)
+    var rxpNameCol = 8; // Default Col H (8)
+    var rxpPackCol = 9; // Default Col I (9)
+    var statusCol = 10; // Default Col J (10)
+    
+    for (var h = 0; h < headers.length; h++) {
+      var hText = String(headers[h]).trim().toUpperCase();
+      if (hText.indexOf('RXP CODE') !== -1 || (hText.indexOf('RXP') !== -1 && hText.indexOf('CODE') !== -1)) rxpCodeCol = h + 1;
+      if (hText.indexOf('RXP NAME') !== -1 || (hText.indexOf('RXP') !== -1 && hText.indexOf('NAME') !== -1)) rxpNameCol = h + 1;
+      if (hText.indexOf('RXP PACK') !== -1 || (hText.indexOf('RXP') !== -1 && hText.indexOf('PACK') !== -1)) rxpPackCol = h + 1;
+      if (hText.indexOf('STATUS') !== -1) statusCol = h + 1;
+    }
+
     var itemCodes = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
     rows.forEach(function(row) {
       for (var i = 0; i < itemCodes.length; i++) {
         if (String(itemCodes[i][0]).trim() === String(row.ITEMCODE).trim()) {
           var targetRow = i + 2;
-          sheet.getRange(targetRow, 8).setValue(row['RXP Code'] || ''); // Col H (8): RXP Code
-          sheet.getRange(targetRow, 9).setValue(row['RXP Name'] || ''); // Col I (9): RXP Name
-          sheet.getRange(targetRow, 10).setValue(row.Status || 'Neeed to Map'); // Col J (10): Status
+          sheet.getRange(targetRow, rxpCodeCol).setValue(row['RXP Code'] || '');
+          sheet.getRange(targetRow, rxpNameCol).setValue(row['RXP Name'] || '');
+          sheet.getRange(targetRow, rxpPackCol).setValue(row['RXP Pack Size'] || '');
+          sheet.getRange(targetRow, statusCol).setValue(row.Status || 'Neeed to Map');
           break;
         }
       }
