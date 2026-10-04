@@ -27,6 +27,10 @@
       if (window.updateExportSummary) window.updateExportSummary();
       openModal('export-modal');
     }
+    function updateMapperName(val) {
+      if (window.state) window.state.mapperName = val.trim();
+      localStorage.setItem('catalog_mapper_name', val.trim());
+    }
     function forceFetchLiveGoogleSheet() {
       if (window.state) {
         window.state.isSheetLocked = false;
@@ -168,6 +172,10 @@
           <span class="status-dot"></span>
           <span id="sheet-name-text">Google Sheet: <strong id="header-sheet-name">Sheet4</strong> <span id="sheet-lock-badge" style="color: #34d399; font-size: 0.8rem; margin-left: 4px;"></span></span>
           <span style="margin-left: 6px; font-size: 0.85rem; opacity: 0.8;" onclick="event.stopPropagation(); openSheetConfigModal();" title="Configure Google Sheet Link & Name">⚙️</span>
+        </div>
+        <div class="status-pill active" style="background: rgba(99, 102, 241, 0.18); border-color: rgba(99, 102, 241, 0.4);" title="Enter your Name or Email to tag all your mapping decisions">
+          <span style="font-size: 0.82rem; color: #a5b4fc; font-weight: 700;">👤 Mapper:</span>
+          <input type="text" id="mapper-name-input" oninput="updateMapperName(this.value)" placeholder="Your Name / Email..." style="background: transparent; border: none; color: #ffffff; font-weight: 700; font-size: 0.82rem; outline: none; width: 140px;">
         </div>
       </div>
 
