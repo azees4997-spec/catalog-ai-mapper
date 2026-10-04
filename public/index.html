@@ -23,6 +23,11 @@
         el.style.display = 'none';
       }
     }
+    function openGoogleSheetLink(e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      var url = (window.state && window.state.sheetUrl) ? window.state.sheetUrl : 'https://docs.google.com/spreadsheets/d/1a3eRoJcizuyVdp24bIlHpB_dRApmyJzqgOc_twzXCP8/edit#gid=691679338';
+      window.open(url, '_blank');
+    }
     function openSheetConfigModal() {
       var urlInput = document.getElementById('sheet-url-config-input');
       var nameInput = document.getElementById('sheet-name-config-input');
@@ -121,9 +126,10 @@
           <span class="status-dot"></span>
           <span>Supabase: <strong>June_Data</strong> (743,963 products)</span>
         </div>
-        <div class="status-pill active" id="sheet-status-pill" style="cursor: pointer;" onclick="openSheetConfigModal()" title="Click to configure Google Sheet Link and Sheet Name">
+        <div class="status-pill active" id="sheet-status-pill" style="cursor: pointer;" onclick="openGoogleSheetLink(event)" title="Click to open live Google Sheet in new tab">
           <span class="status-dot"></span>
           <span id="sheet-name-text">Google Sheet: <strong id="header-sheet-name">Sheet4</strong> <span id="sheet-lock-badge" style="color: #34d399; font-size: 0.8rem; margin-left: 4px;"></span></span>
+          <span style="margin-left: 6px; font-size: 0.85rem; opacity: 0.8;" onclick="event.stopPropagation(); openSheetConfigModal();" title="Configure Google Sheet Link & Name">⚙️</span>
         </div>
       </div>
 

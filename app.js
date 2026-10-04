@@ -428,12 +428,6 @@ window.autoFetchGoogleSheetData = async function(silent = false) {
 
 // Initialize DOM elements & Listeners with persistent state restoration
 document.addEventListener('DOMContentLoaded', async () => {
-  state.items = SAMPLE_SUPPLIER_ITEMS.map(i => {
-    const item = { ...i };
-    ensureItemCandidates(item);
-    return item;
-  });
-
   const headerSheetName = document.getElementById('header-sheet-name');
   if (headerSheetName) headerSheetName.textContent = state.sheetName;
 
@@ -441,12 +435,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.updateWebhookStatusUI();
   window.updateLockUI();
 
-  updateKPICounters();
-  renderTable();
-
-  // Load persistent state
+  // 1. Try loading persistent state (if previously saved/imported)
   const savedItems = await StorageManager.loadState();
-  if (savedItems && Array.isArray(savedItems) && savedItems.length > 0) {
+  if (savedItems && Array.isArray(savedItems) && savedItems.length > 0 && !savedItems.isSample) {
     state.items = savedItems.map(i => {
       const item = { ...i };
       ensureItemCandidates(item);
@@ -454,10 +445,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     updateKPICounters();
     renderTable();
-    console.log(`Loaded ${savedItems.length} items from persistent state.`);
+    console.log(`Loaded ${savedItems.length} items from local storage.`);
   } else {
-    if (!state.isSheetLocked) {
-      window.autoFetchGoogleSheetData(true);
+    // 2. Auto-fetch live Google Sheet data from Sheet4
+    const fetched = await window.autoFetchGoogleSheetData(true);
+    if (!fetched) {
+      // Fallback to sample supplier items if offline/fetch fails
+      state.items = SAMPLE_SUPPLIER_ITEMS.map(i => {
+        const item = { ...i };
+        ensureItemCandidates(item);
+        return item;
+      });
+      updateKPICounters();
+      renderTable();
     }
   }
 });
@@ -1446,31 +1446,41 @@ function updateKPICounters() {
   const mapped = state.items.filter(i => i.Status === 'Mapped' || i.Status === 'AI Matched').length;
   const notAvail = state.items.filter(i => i.Status === 'Not Available').length;
 
-  document.getElementById('kpi-total').textContent = pending.toLocaleString();
-  document.getElementById('kpi-approved').textContent = verified.toLocaleString();
+  const kpiTotal = document.getElementById('kpi-total');
+  if (kpiTotal) kpiTotal.textContent = pending.toLocaleString();
+
+  const kpiApproved = document.getElementById('kpi-approved');
+  if (kpiApproved) kpiApproved.textContent = verified.toLocaleString();
   
   const kpiVal = document.getElementById('kpi-validate');
   if (kpiVal) kpiVal.textContent = validate.toLocaleString();
 
-  document.getElementById('kpi-pending').textContent = pending.toLocaleString();
+  const kpiPending = document.getElementById('kpi-pending');
+  if (kpiPending) kpiPending.textContent = pending.toLocaleString();
   
   const kpiMapped = document.getElementById('kpi-mapped') || document.getElementById('kpi-matched');
   if (kpiMapped) kpiMapped.textContent = mapped.toLocaleString();
 
-  document.getElementById('kpi-not-avail').textContent = notAvail.toLocaleString();
+  const kpiNotAvail = document.getElementById('kpi-not-avail');
+  if (kpiNotAvail) kpiNotAvail.textContent = notAvail.toLocaleString();
 
-  document.getElementById('tab-count-all').textContent = total.toLocaleString();
-  document.getElementById('tab-count-verified').textContent = verified.toLocaleString();
+  const tabAll = document.getElementById('tab-count-all');
+  if (tabAll) tabAll.textContent = total.toLocaleString();
+
+  const tabVerified = document.getElementById('tab-count-verified');
+  if (tabVerified) tabVerified.textContent = verified.toLocaleString();
   
   const tabVal = document.getElementById('tab-count-validate');
   if (tabVal) tabVal.textContent = validate.toLocaleString();
 
-  document.getElementById('tab-count-pending').textContent = pending.toLocaleString();
+  const tabPending = document.getElementById('tab-count-pending');
+  if (tabPending) tabPending.textContent = pending.toLocaleString();
 
   const tabMapped = document.getElementById('tab-count-mapped') || document.getElementById('tab-count-ai');
   if (tabMapped) tabMapped.textContent = mapped.toLocaleString();
 
-  document.getElementById('tab-count-notavail').textContent = notAvail.toLocaleString();
+  const tabNotAvail = document.getElementById('tab-count-notavail');
+  if (tabNotAvail) tabNotAvail.textContent = notAvail.toLocaleString();
 }
 
 // Export Summary Box
