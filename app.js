@@ -1560,7 +1560,11 @@ function parseSheet5CSV(csvText) {
         if (cols.length < 2) continue;
         
         const itemCode = cols[0] ? cols[0].trim() : '';
-        const item = state.items.find(it => it.ITEMCODE === itemCode);
+                  const itemCodeClean = itemCode.replace(/^0+/, '').toLowerCase();
+          const item = state.items.find(it => {
+              if (!it.ITEMCODE) return false;
+              return it.ITEMCODE.toString().trim().replace(/^0+/, '').toLowerCase() === itemCodeClean;
+          });
         
         if (item) {
             const cands = [];
